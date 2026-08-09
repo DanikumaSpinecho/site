@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate" />
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
 <meta name="referrer" content="no-referrer" />
 <meta name="robots" content="noai, noimageai" />
+<meta name="theme-color" content="#0a0e13" />
 <title>Mitigoke — mitigation prompter</title>
 <style>
   :root {
@@ -21,6 +22,7 @@
     --soon: #47d18b;
     --past: #47566b;
     --tb: #ff7a59;
+    --mech: #8f7bd4;
     --tank: #4a7fd4;
     --healer: #59b36b;
     --melee: #c4574c;
@@ -31,11 +33,14 @@
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    overflow-x: hidden;
   }
   a { color: var(--accent); }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
   h1 { font-size: 1.35rem; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: .9rem; margin-bottom: 24px; }
+  .ver { font-size: .74rem; color: var(--past); border: 1px solid var(--line);
+         border-radius: 999px; padding: 1px 7px; margin-left: 6px; white-space: nowrap; }
 
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
   label { display: block; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 6px; }
@@ -92,24 +97,49 @@
   .now-head img.icon { width: 84px; height: 84px; border-radius: 10px; flex: 0 0 auto; }
   .now-ability { font-size: clamp(2rem, 7vw, 4.2rem); font-weight: 800; line-height: 1.1; }
   .now-count { font-size: clamp(2.4rem, 9vw, 5.5rem); font-weight: 800; font-variant-numeric: tabular-nums; color: var(--now); }
-  .now-for { color: var(--muted); font-size: 1.05rem; margin-top: 10px; }
+  .now-mech {
+    color: var(--mech); font-size: .78rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em; margin-top: 12px;
+  }
+  .now-for { color: var(--muted); font-size: 1.05rem; margin-top: 2px; }
   .now-note { color: var(--now); font-size: 1rem; margin-top: 8px; font-style: italic; }
   .idle { color: var(--past); font-size: 1.4rem; }
 
+  /* ---- File d'attente ---- */
+  /* Toute la liste est dans le DOM, pas seulement les prochaines lignes : c'est
+     ce qui permet de parcourir le plan entier avant le pull. */
+  .qbox { position: relative; max-height: 46vh; overflow-y: auto; overscroll-behavior: contain; }
   ul.queue { list-style: none; margin: 0; padding: 0; }
-  ul.queue li {
+  ul.queue li.cue {
     display: flex; align-items: center; gap: 12px;
     padding: 9px 14px; border-bottom: 1px solid var(--line);
   }
-  ul.queue li:last-child { border-bottom: 0; }
-  ul.queue li.done { opacity: .38; }
+  ul.queue li.cue.done { opacity: .34; }
+  ul.queue li.cue.current { background: #1a2331; }
   ul.queue img.icon { width: 30px; height: 30px; border-radius: 6px; flex: 0 0 auto; }
   ul.queue .slot { width: 30px; flex: 0 0 auto; }
   .t { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 4.5em; }
   .ab { font-weight: 650; min-width: 11em; }
   .ctx { color: var(--muted); font-size: .9rem; }
   .ctx .tb { color: var(--tb); }
+  /* Transparent sur grand ecran : ctx et who se placent comme s'il n'existait pas. */
+  .sub2 { display: contents; }
   .in { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--soon); font-weight: 600; }
+
+  /* Encadrement par mecanique : une mecanique du boss enchaine plusieurs casts,
+     et les mitigations qui y repondent forment un bloc. */
+  li.mech-head {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    padding: 14px 14px 5px; position: sticky; top: 0; z-index: 2;
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .mech-name { color: var(--mech); font-weight: 700; font-size: .74rem;
+               text-transform: uppercase; letter-spacing: .07em; }
+  .mech-time { color: var(--past); font-size: .74rem; font-variant-numeric: tabular-nums; }
+  li.cue.grouped { border-left: 3px solid var(--mech); background: #121a26; }
+  li.cue.grouped.current { background: #1d2739; }
+  li.cue.glast { margin-bottom: 8px; border-bottom-color: transparent; }
+
   .phase-tag { display: inline-block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
                color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
 
@@ -118,8 +148,61 @@
   .team-state b { color: var(--soon); }
   .team-state.follow b { color: var(--accent); }
   .share { display: flex; gap: 8px; margin-top: 10px; }
-  .share input { font-family: ui-monospace, Consolas, monospace; font-size: .85rem; }
+  .share input { font-family: ui-monospace, Consolas, monospace; font-size: .85rem; min-width: 0; }
   .share button { flex: 0 0 auto; }
+  #teamName { flex: 1 1 220px; }
+  #invite { flex: 0 0 auto; }
+
+  /* ================= Telephone ================= */
+  @media (max-width: 760px) {
+    .wrap { padding: 14px 12px 32px; }
+    h1 { font-size: 1.15rem; }
+    .sub { margin-bottom: 16px; font-size: .85rem; }
+    .card { padding: 14px; border-radius: 10px; }
+
+    /* Un doigt n'est pas un curseur : 46 px de haut au minimum partout. */
+    input, select, button { min-height: 46px; }
+    .row > * { flex: 1 1 100%; }
+    #teamName, #invite { flex: 1 1 100%; }
+
+    .bar { gap: 10px; padding: 10px 12px; }
+    .clock { font-size: 2.1rem; }
+    .meta { font-size: .8rem; order: 3; }
+    .spacer { display: none; }
+    .bar .row.tight { width: 100%; gap: 8px; }
+    .bar .row.tight > button { flex: 1 1 0; padding: 10px 4px; font-size: .92rem; }
+
+    .now-zone { padding: 16px 12px; min-height: 150px; border-radius: 12px; }
+    .now-head { gap: 12px; }
+    .now-head img.icon { width: 56px; height: 56px; }
+    .now-ability { font-size: clamp(1.5rem, 8vw, 2.6rem); }
+    .now-count { font-size: clamp(2rem, 13vw, 3.4rem); }
+    .now-for { font-size: .95rem; }
+
+    /* La ligne de file passe sur deux niveaux : capacite en haut, contexte en
+       dessous, pour ne jamais deborder en largeur. */
+    .qbox { max-height: 38vh; }
+    ul.queue li.cue { padding: 8px 10px; gap: 9px; flex-wrap: wrap; }
+    ul.queue img.icon, ul.queue .slot { width: 26px; height: 26px; }
+    .t { min-width: 3.8em; font-size: .88rem; }
+    .ab { min-width: 0; flex: 1 1 auto; font-size: .95rem; }
+    /* Deuxieme rang : le cast du boss et, en mode « toute l'equipe », le poste
+       concerne. Les regrouper est ce qui tient la ligne a deux niveaux — separes,
+       chacun prenait toute la largeur et la ligne montait a trois rangs. */
+    .in { font-size: .88rem; order: 1; }
+    .sub2 {
+      display: flex; width: 100%; order: 2; gap: 8px;
+      align-items: center; flex-wrap: wrap; padding-left: 35px;
+    }
+    .ctx { font-size: .82rem; }
+    li.mech-head { padding: 11px 10px 4px; }
+  }
+
+  @media (max-width: 400px) {
+    .clock { font-size: 1.8rem; }
+    .bar .row.tight > button { font-size: .85rem; padding: 10px 2px; }
+    .phase-tag { font-size: .66rem; }
+  }
 </style>
 </head>
 <body>
@@ -128,7 +211,7 @@
   <h1>Mitigoke</h1>
   <div class="sub">
     Load a plan shared from <a href="https://xivmit.app" target="_blank" rel="noopener noreferrer">xivmit.app</a>,
-    pick your slot, and follow your cues live.
+    pick your slot, and follow your cues live.<span class="ver">v0.0.2</span>
   </div>
 
   <!-- ============ Chargement du plan ============ -->
@@ -184,7 +267,7 @@
       <label>Party</label>
       <div class="row">
         <input id="teamName" placeholder="Party name (e.g. Tuesday static)" maxlength="40" autocomplete="off" />
-        <button id="invite" style="flex:0 0 auto">Invite party</button>
+        <button id="invite">Invite party</button>
       </div>
       <div class="hint">
         Opens a room: your Start button then runs everyone's clock.
@@ -208,7 +291,7 @@
     <div class="row tight" style="margin-top:16px">
       <button class="primary" id="go">Open prompter</button>
       <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;margin:0">
-        <input type="checkbox" id="sound" checked style="width:auto" /> Beep
+        <input type="checkbox" id="sound" checked style="width:auto;min-height:0" /> Beep
       </label>
     </div>
   </div>
@@ -241,13 +324,16 @@
           <img class="icon" id="nowIcon" alt="" hidden />
           <div class="now-ability" id="nowAb"></div>
         </div>
+        <div class="now-mech" id="nowMech"></div>
         <div class="now-for" id="nowFor"></div>
         <div class="now-note" id="nowNote"></div>
       </div>
     </div>
 
     <div class="card" style="padding:6px 0">
-      <ul class="queue" id="queue"></ul>
+      <div class="qbox" id="queueBox">
+        <ul class="queue" id="queue"></ul>
+      </div>
     </div>
   </div>
 </div>
@@ -267,6 +353,9 @@ const S = {
   t: 0,              // temps de combat courant, en secondes (negatif avant le pull)
   fired: new Set(),  // ids deja bipes
   lang: "en",
+
+  qNodes: [],        // <li> de la file, indexes comme S.cues
+  qIdx: -1,          // index du cue courant lors du dernier passage
 
   // --- mode equipe ---
   room: null,        // etat du salon renvoye par sync.php, ou null en solo
@@ -329,9 +418,6 @@ function jobBadge(job) {
   if (j && j.icon) {
     return `<span class="job"><img src="${esc(j.icon)}" alt="${esc(job)}" title="${esc(job)}" loading="lazy" /></span>`;
   }
-  // Un plan peut designer un poste par son role (« Melee 1 ») plutot que par un
-  // job : on colore quand meme la pastille. Et le libelle est tronque a trois
-  // lettres, sinon « RANGED » deborde de la pastille.
   const role = (j && j.role) || PSEUDO_JOBS[job] || "";
   return `<span class="job"><span class="chip ${esc(role)}" title="${esc(job)}">${esc(String(job).slice(0, 3))}</span></span>`;
 }
@@ -412,6 +498,15 @@ function contextFor(t) {
   return best;
 }
 
+// Une mecanique est une fenetre de temps qui coiffe plusieurs casts du boss :
+// « Graven Image I » (30 -> 52 s) enchaine Flagrant Fire III, Wave Cannon,
+// Explosion et Confetti. C'est ce niveau-la que le raid nomme a voix haute, donc
+// celui qu'il faut afficher au-dessus du cast. Les fenetres ne se chevauchent
+// pas, et une bonne partie des casts n'appartient a aucune mecanique.
+function mechanicFor(t) {
+  return (S.fight.mechanics || []).find((m) => t >= m.startTime && t < m.endTime) || null;
+}
+
 // Decalage applique : celui du salon (pose par le chef de groupe, il vaut pour
 // tout le monde) plus celui de chacun, qui n'ajuste que son propre affichage.
 function totalOffset() {
@@ -429,6 +524,9 @@ function buildCues() {
       const job = jobOf(a.playerId);
       const v = abilityView(a.abilityId, job);
       const ctx = contextFor(a.startTime);
+      // On rattache le cue a la mecanique du CAST vise, pas a l'heure du cue :
+      // une mitigation se lance en avance et tomberait souvent hors fenetre.
+      const mech = mechanicFor(ctx ? ctx.time : a.startTime);
       return {
         id: a.id,
         t: a.startTime + off,
@@ -439,12 +537,14 @@ function buildCues() {
         who: players[a.playerId] ? (players[a.playerId].name || players[a.playerId].job) : "",
         note: a.note || "",
         ctx,
+        mech,
         phase: phaseAt(a.startTime),
       };
     })
     .sort((x, y) => x.t - y.t);
 
   S.fired.clear();
+  paintQueue();
 }
 
 // ------------------------------------------------------------------- prompteur
@@ -460,6 +560,99 @@ function beep() {
     o.start();
     o.stop(ac.currentTime + 0.2);
   } catch (_) { /* audio indisponible : sans importance */ }
+}
+
+/**
+ * Construit la file ENTIERE, une fois, au moment ou les cues changent.
+ *
+ * L'ancienne version n'en peignait que douze lignes a chaque passage de boucle.
+ * C'etait economique, mais on ne pouvait pas parcourir son plan : pour un WHM sur
+ * UMAD, la douzieme ligne tombe a 4:59 et la liste semblait s'arreter la, alors
+ * que le plan court jusqu'a 17:56. Tout est desormais dans le DOM, et la boucle
+ * ne fait plus que deplacer le surlignage.
+ */
+function paintQueue() {
+  const showWho = $("player").value === "*";
+  const html = [];
+  let openMech = null;
+
+  S.cues.forEach((c, i) => {
+    const mid = c.mech ? c.mech.id : null;
+    if (mid !== openMech) {
+      if (c.mech) {
+        html.push(`<li class="mech-head"><span class="mech-name">${esc(c.mech.name)}</span>` +
+                  `<span class="mech-time">${fmt(c.mech.startTime)} – ${fmt(c.mech.endTime)}</span></li>`);
+      }
+      openMech = mid;
+    }
+    const nextMid = S.cues[i + 1] && S.cues[i + 1].mech ? S.cues[i + 1].mech.id : null;
+    const glast = mid && nextMid !== mid ? " glast" : "";
+
+    const icon = c.icon
+      ? `<img class="icon" src="${esc(c.icon)}" alt="" loading="lazy" />`
+      : `<span class="slot"></span>`;
+    const ctx = c.ctx
+      ? `<span class="ctx">${esc(c.ctx.name)}${c.ctx.type === "tb" ? ' <span class="tb">TB</span>' : ""}</span>`
+      : "";
+    const who = showWho && c.who
+      ? ` <span class="ctx">${c.job ? jobBadge(c.job) : ""} ${esc(c.who)}</span>`
+      : "";
+
+    // ctx et who sont enveloppes : sur telephone ils forment une seconde ligne,
+    // sur grand ecran l'enveloppe est transparente (display: contents).
+    html.push(
+      `<li class="cue${mid ? " grouped" : ""}${glast}" data-i="${i}">` +
+        `<span class="t">${fmt(c.t)}</span>${icon}` +
+        `<span class="ab">${esc(c.name)}</span>` +
+        `<span class="sub2">${ctx}${who}</span>` +
+        `<span class="in"></span>` +
+      `</li>`
+    );
+  });
+
+  $("queue").innerHTML = html.join("");
+  S.qNodes = [];
+  $("queue").querySelectorAll("li.cue").forEach((li) => { S.qNodes[+li.dataset.i] = li; });
+  S.qIdx = -1;
+}
+
+function scrollQueueTo(el) {
+  const box = $("queueBox");
+  box.scrollTop = Math.max(0, el.offsetTop - box.clientHeight / 3);
+}
+
+/** Met a jour la file sans la reconstruire : quelques classes et libelles. */
+function updateQueue(t) {
+  if (!S.qNodes.length) return;
+  const idx = S.cues.findIndex((c) => c.t > t - 2);
+  const cur = idx === -1 ? S.cues.length : idx;
+
+  if (cur !== S.qIdx) {
+    const from = Math.min(S.qIdx < 0 ? 0 : S.qIdx, cur);
+    const to = Math.max(S.qIdx < 0 ? S.cues.length : S.qIdx, cur);
+    for (let i = from; i <= to && i < S.qNodes.length; i++) {
+      const n = S.qNodes[i];
+      if (!n) continue;
+      n.classList.toggle("done", i < cur);
+      n.classList.toggle("current", i === cur);
+      const lab = n.querySelector(".in");
+      if (lab) lab.textContent = "";
+    }
+    S.qIdx = cur;
+    // On ne recadre que pendant un run : avant le pull, on doit pouvoir
+    // parcourir son plan tranquillement sans que la liste reparte au debut.
+    if (S.playing && S.qNodes[cur]) scrollQueueTo(S.qNodes[cur]);
+  }
+
+  // Le compte a rebours n'a d'interet que sur les tout prochains.
+  for (let i = cur; i < Math.min(cur + 8, S.cues.length); i++) {
+    const n = S.qNodes[i];
+    if (!n) continue;
+    const lab = n.querySelector(".in");
+    if (!lab) continue;
+    const dt = S.cues[i].t - t;
+    lab.textContent = dt > 0 ? "in " + Math.round(dt) + " s" : "";
+  }
 }
 
 function render() {
@@ -498,6 +691,8 @@ function render() {
       ic.hidden = true;
     }
 
+    // La mecanique coiffe le cast : c'est le nom que le raid annonce.
+    $("nowMech").textContent = next.mech ? next.mech.name : "";
     $("nowFor").textContent = next.ctx
       ? `for ${next.ctx.name}${next.ctx.type === "tb" ? " (tankbuster)" : ""} at ${fmt(next.ctx.time)}`
       : "";
@@ -510,29 +705,7 @@ function render() {
     }
   }
 
-  // File d'attente : quelques passes + les suivantes.
-  const idx = S.cues.findIndex((c) => c.t > t - 2);
-  const from = Math.max(0, (idx === -1 ? S.cues.length : idx) - 2);
-  const slice = S.cues.slice(from, from + 12);
-  const showWho = $("player").value === "*";
-  $("queue").innerHTML = slice
-    .map((c) => {
-      const dt = c.t - t;
-      const done = dt <= -2;
-      const icon = c.icon
-        ? `<img class="icon" src="${esc(c.icon)}" alt="" loading="lazy" />`
-        : `<span class="slot"></span>`;
-      const ctx = c.ctx
-        ? `<span class="ctx">${esc(c.ctx.name)}${c.ctx.type === "tb" ? ' <span class="tb">TB</span>' : ""}</span>`
-        : "";
-      const inLbl = !done && dt > 0 ? `<span class="in">in ${Math.round(dt)} s</span>` : "";
-      const who = showWho && c.who
-        ? ` <span class="ctx">${c.job ? jobBadge(c.job) : ""} ${esc(c.who)}</span>`
-        : "";
-      return `<li class="${done ? "done" : ""}"><span class="t">${fmt(c.t)}</span>${icon}` +
-             `<span class="ab">${esc(c.name)}</span>${ctx}${who}${inLbl}</li>`;
-    })
-    .join("");
+  updateQueue(t);
 }
 
 // Boucle d'affichage volontairement sur setInterval et non requestAnimationFrame :
@@ -595,6 +768,7 @@ function resetRun() {
   S.fired.clear();
   $("pause").disabled = true;
   $("pause").textContent = "Pause";
+  if (S.qNodes.length) $("queueBox").scrollTop = 0;
 }
 
 // ==========================================================================

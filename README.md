@@ -1,10 +1,14 @@
 # Mitigoke
 
-A live teleprompter for **FFXIV mitigation plans**. Paste a plan shared from
-[xivmit.app](https://xivmit.app), pick your slot, and the page calls out *your* cooldowns —
-and only yours — a few seconds before each one is due, karaoke style.
+**A live teleprompter for FFXIV mitigation plans: each player sees only their own
+cooldowns, announced seconds ahead, on one clock shared by the whole party.**
 
-One person can open a party room; their Start button then runs everyone's clock.
+Paste a plan shared from [xivmit.app](https://xivmit.app), pick your slot, and the page
+calls out *your* cooldowns — and only yours — a few seconds before each one is due,
+karaoke style. One person opens a party room; their Start button then runs everyone's
+clock.
+
+Works on a phone.
 
 ```
 https://your-host/?plan=UMAD-G0FF1B
@@ -23,7 +27,12 @@ Three screens in one page:
 2. **Settings** — slot, ability-name language, lead time, personal offset, pull countdown,
    beep, and party room.
 3. **Prompter** — fight clock, a large "now" panel with countdown and ability icon, the
-   boss action it answers, the plan's note if there is one, and the upcoming queue.
+   mechanic and boss cast it answers, the plan's note if there is one, and the full queue.
+
+The queue holds **every cue in the plan**, not a sliding window: you can read the whole
+fight through before the pull. Once the clock runs it scrolls itself, keeping the current
+cue a third of the way down. Before the pull it stays where you left it, so browsing is
+not fought by the auto-scroll.
 
 Settings, in seconds:
 
@@ -34,6 +43,30 @@ Settings, in seconds:
 | **Pull countdown** | the clock starts negative, to match the in-game `/countdown` |
 
 Keyboard: `Space` start/pause, `R` reset.
+
+## Mechanics
+
+A boss mechanic is not a single cast. *Graven Image I* runs from 00:30 to 00:52 and, inside
+that window, Kefka chains **Flagrant Fire III**, **Wave Cannon**, **Explosion** and
+**Confetti**. The mechanic is the name a raid calls out loud; the casts are what you are
+actually mitigating.
+
+The upstream fight data carries both — `mechanics` as named time windows, `bossActions` as
+timed casts — but no explicit link between them. Mitigoke reconstructs it: a cue is matched
+to the cast it answers, and that cast to the mechanic whose window contains it. Deliberately
+by the *cast's* time and not the cue's, since a mitigation goes out early and would often
+fall outside the window.
+
+So the "now" panel reads:
+
+```
+                    GRAVEN IMAGE I
+            for Flagrant Fire III at 00:38
+```
+
+and the queue frames consecutive cues belonging to the same mechanic under a sticky header,
+with a coloured edge. Cues outside any mechanic — roughly a third of them on Dancing Mad —
+stay ungrouped rather than being forced into a box.
 
 ## Party sync
 
@@ -142,9 +175,22 @@ stale cache is served rather than an error if upstream is unreachable.
 - **Expired rooms.** A follower whose room has expired keeps polling and is not told; the
   clock carries on from the last known state.
 - Party sync has been verified between two clients, not yet across a full group of eight.
-- The mobile layout works but is not polished.
 - `mapping.json` can be edited live from `/admin/`, so a deployed copy may drift from the
   one in this repository.
+- `/admin/` is built for a desktop screen; the prompter itself is not.
+
+## Version
+
+**0.0.2**
+
+- Whole plan in the queue instead of a twelve-row window. The old window looked like the
+  plan simply stopped — for a White Mage on Dancing Mad the twelfth row falls at 4:59,
+  while the plan runs to 17:56.
+- Boss mechanics reconstructed and shown above the cast, and used to group the queue.
+- Phone layout: single column, thumb-sized controls, two-line queue rows, no sideways
+  scroll.
+
+**0.0.1** — first working version: prompter, ability icons and localised names, party sync.
 
 ## Credits
 
