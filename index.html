@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate" />
+<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+<meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
+<meta name="referrer" content="no-referrer" />
+<meta name="robots" content="noai, noimageai" />
+<title>Mitigoke — mitigation prompter</title>
+<style>
+  :root {
+    --bg: #0a0e13;
+    --panel: #141b24;
+    --line: #253243;
+    --text: #e6edf5;
+    --muted: #8fa3ba;
+    --accent: #4da3ff;
+    --now: #ffcc48;
+    --soon: #47d18b;
+    --past: #47566b;
+    --tb: #ff7a59;
+    --tank: #4a7fd4;
+    --healer: #59b36b;
+    --melee: #c4574c;
+    --ranged: #c9a227;
+    --caster: #8f6bd4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: .9rem; margin-bottom: 24px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  label { display: block; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 6px; }
+  input, select, button {
+    font: inherit; color: var(--text); background: #0e141c;
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  }
+  input, select { width: 100%; }
+  button { cursor: pointer; background: #1b2836; border-color: #33445a; }
+  button:hover { background: #24374a; }
+  button.primary { background: var(--accent); color: #04121f; border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 160px; }
+  .row.tight > * { flex: 0 0 auto; }
+  .hint { color: var(--muted); font-size: .82rem; margin-top: 6px; }
+  .error { color: #ff8b7a; margin-top: 10px; }
+  .sep { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+
+  /* ---- Pastilles de job ---- */
+  .job { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+  .job img { width: 22px; height: 22px; display: block; }
+  .job .chip {
+    width: 22px; height: 22px; border-radius: 5px; font-size: .58rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; color: #04121f; background: var(--past);
+  }
+  .chip.tank { background: var(--tank); } .chip.healer { background: var(--healer); }
+  .chip.melee { background: var(--melee); } .chip.ranged { background: var(--ranged); }
+  .chip.caster { background: var(--caster); }
+
+  /* ---- Prompteur ---- */
+  #stage { display: none; }
+  #stage.on { display: block; }
+  .bar {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 18px; margin-bottom: 16px;
+  }
+  .clock { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+  .clock.pre { color: var(--now); }
+  .meta { color: var(--muted); font-size: .85rem; }
+  .meta strong { color: var(--text); font-weight: 600; }
+  .spacer { flex: 1 1 auto; }
+
+  .now-zone {
+    border: 2px solid var(--line); border-radius: 14px; padding: 26px;
+    text-align: center; margin-bottom: 18px; min-height: 190px;
+    display: flex; flex-direction: column; justify-content: center;
+    transition: border-color .15s, background .15s;
+  }
+  .now-zone.armed { border-color: var(--soon); }
+  .now-zone.fire { border-color: var(--now); background: #2a2410; }
+  .now-head { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; }
+  .now-head img.icon { width: 84px; height: 84px; border-radius: 10px; flex: 0 0 auto; }
+  .now-ability { font-size: clamp(2rem, 7vw, 4.2rem); font-weight: 800; line-height: 1.1; }
+  .now-count { font-size: clamp(2.4rem, 9vw, 5.5rem); font-weight: 800; font-variant-numeric: tabular-nums; color: var(--now); }
+  .now-for { color: var(--muted); font-size: 1.05rem; margin-top: 10px; }
+  .now-note { color: var(--now); font-size: 1rem; margin-top: 8px; font-style: italic; }
+  .idle { color: var(--past); font-size: 1.4rem; }
+
+  ul.queue { list-style: none; margin: 0; padding: 0; }
+  ul.queue li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 14px; border-bottom: 1px solid var(--line);
+  }
+  ul.queue li:last-child { border-bottom: 0; }
+  ul.queue li.done { opacity: .38; }
+  ul.queue img.icon { width: 30px; height: 30px; border-radius: 6px; flex: 0 0 auto; }
+  ul.queue .slot { width: 30px; flex: 0 0 auto; }
+  .t { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 4.5em; }
+  .ab { font-weight: 650; min-width: 11em; }
+  .ctx { color: var(--muted); font-size: .9rem; }
+  .ctx .tb { color: var(--tb); }
+  .in { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--soon); font-weight: 600; }
+  .phase-tag { display: inline-block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+               color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+
+  /* ---- Equipe ---- */
+  .team-state { font-size: .85rem; color: var(--muted); }
+  .team-state b { color: var(--soon); }
+  .team-state.follow b { color: var(--accent); }
+  .share { display: flex; gap: 8px; margin-top: 10px; }
+  .share input { font-family: ui-monospace, Consolas, monospace; font-size: .85rem; }
+  .share button { flex: 0 0 auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Mitigoke</h1>
+  <div class="sub">
+    Load a plan shared from <a href="https://xivmit.app" target="_blank" rel="noopener noreferrer">xivmit.app</a>,
+    pick your slot, and follow your cues live.
+  </div>
+
+  <!-- ============ Chargement du plan ============ -->
+  <div class="card" id="setup">
+    <label for="link">Share link or plan code</label>
+    <input id="link" placeholder="https://xivmit.app/?plan=UMAD-G0FF1B" autocomplete="off" />
+    <div class="hint">The code on its own works too (e.g. <code>UMAD-G0FF1B</code>).</div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" id="load">Load plan</button>
+    </div>
+    <div class="error" id="err" hidden></div>
+  </div>
+
+  <!-- ============ Reglages ============ -->
+  <div class="card" id="opts" hidden>
+    <div class="row">
+      <div style="flex:2 1 260px">
+        <label for="player">Your slot</label>
+        <select id="player"></select>
+      </div>
+      <div>
+        <label for="lang">Ability names</label>
+        <select id="lang">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="ja">日本語</option>
+        </select>
+      </div>
+      <div>
+        <label for="lead">Lead time (s)</label>
+        <input id="lead" type="number" min="0" max="30" step="1" value="5" />
+      </div>
+      <div>
+        <label for="offset">Personal offset (s)</label>
+        <input id="offset" type="number" min="-60" max="60" step="0.5" value="0" />
+      </div>
+      <div>
+        <label for="pre">Pull countdown (s)</label>
+        <input id="pre" type="number" min="0" max="60" step="1" value="7" />
+      </div>
+    </div>
+    <div class="hint">
+      <strong>Lead time</strong> is how far ahead each cue is announced.
+      <strong>Personal offset</strong> shifts your own display only; in a party, the leader
+      also has a shared offset.
+    </div>
+
+    <hr class="sep" />
+
+    <!-- Equipe ------------------------------------------------------------- -->
+    <div id="teamIdle">
+      <label>Party</label>
+      <div class="row">
+        <input id="teamName" placeholder="Party name (e.g. Tuesday static)" maxlength="40" autocomplete="off" />
+        <button id="invite" style="flex:0 0 auto">Invite party</button>
+      </div>
+      <div class="hint">
+        Opens a room: your Start button then runs everyone's clock.
+        Without a room the prompter works solo, exactly as before.
+      </div>
+    </div>
+
+    <div id="teamLive" hidden>
+      <label>Party</label>
+      <div class="team-state" id="teamState"></div>
+      <div class="share" id="shareBox" hidden>
+        <input id="shareLink" readonly />
+        <button id="copyLink">Copy</button>
+      </div>
+      <div class="hint" id="teamHint"></div>
+      <div class="row tight" style="margin-top:10px">
+        <button id="leaveTeam">Leave room</button>
+      </div>
+    </div>
+
+    <div class="row tight" style="margin-top:16px">
+      <button class="primary" id="go">Open prompter</button>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;margin:0">
+        <input type="checkbox" id="sound" checked style="width:auto" /> Beep
+      </label>
+    </div>
+  </div>
+
+  <!-- ============ Prompteur ============ -->
+  <div id="stage">
+    <div class="bar">
+      <div class="clock" id="clock">00:00</div>
+      <div class="meta">
+        <div id="who"></div>
+        <div>
+          <span class="phase-tag" id="phase">—</span>
+          <span class="team-state" id="barTeam"></span>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="row tight">
+        <button class="primary" id="start">Start</button>
+        <button id="pause" disabled>Pause</button>
+        <button id="reset">Reset</button>
+        <button id="back">Settings</button>
+      </div>
+    </div>
+
+    <div class="now-zone" id="nowZone">
+      <div class="idle" id="idle">Waiting for start</div>
+      <div id="nowBox" hidden>
+        <div class="now-count" id="nowCount">—</div>
+        <div class="now-head">
+          <img class="icon" id="nowIcon" alt="" hidden />
+          <div class="now-ability" id="nowAb"></div>
+        </div>
+        <div class="now-for" id="nowFor"></div>
+        <div class="now-note" id="nowNote"></div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:6px 0">
+      <ul class="queue" id="queue"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------- etat global
+const S = {
+  plan: null,        // plan partage (players, assignments, fightId, title)
+  fight: null,       // combat (phases, mechanics, bossActions)
+  abilities: {},     // catalogue brut xivmit { abilityId: {...} }
+  map: null,         // mapping.json : noms localises + icones
+  cues: [],          // declenchements du poste choisi, tries par temps
+  playing: false,
+  t0: 0,             // performance.now() correspondant a t = -pre   (mode solo)
+  t: 0,              // temps de combat courant, en secondes (negatif avant le pull)
+  fired: new Set(),  // ids deja bipes
+  lang: "en",
+
+  // --- mode equipe ---
+  room: null,        // etat du salon renvoye par sync.php, ou null en solo
+  leaderKey: null,   // non nul si on est le chef de groupe
+  anchor: 0,         // ecart mesure : epoch serveur = performance.now() + anchor
+  synced: false,
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+const fmt = (s) => {
+  const neg = s < 0;
+  const a = Math.abs(s);
+  const m = Math.floor(a / 60), r = Math.floor(a % 60);
+  return (neg ? "-" : "") + String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0");
+};
+
+const num = (id) => parseFloat($(id).value) || 0;
+
+// Le code du plan peut arriver comme lien complet ou brut.
+function extractCode(raw) {
+  const s = raw.trim();
+  const m = s.match(/[?&]plan=([A-Za-z0-9-]+)/) || s.match(/^([A-Za-z0-9]{1,12}-[A-Za-z0-9]{1,16})$/);
+  return m ? m[1].toUpperCase() : null;
+}
+
+async function api(qs) {
+  const r = await fetch("api.php?" + qs);
+  const body = await r.json().catch(() => null);
+  if (!r.ok || !body || body.error) {
+    throw new Error(body && body.error ? body.error : "Network error (" + r.status + ")");
+  }
+  return body;
+}
+
+// --------------------------------------------------------- noms et icones
+// mapping.json est la source unique : nom a afficher par langue, icone de la
+// capacite, et icone par job pour les capacites generiques de role (« Invuln »
+// n'a pas d'image en soi, mais Hallowed Ground / Holmgang / Living Dead si).
+// La page admin/ permet de corriger tout cela en ligne, sans toucher au code.
+function abilityView(abilityId, job) {
+  const m = S.map && S.map.abilities ? S.map.abilities[abilityId] : null;
+  if (!m) {
+    const raw = S.abilities[abilityId];
+    return { name: raw ? raw.name : abilityId, icon: null, mit: raw && raw.mitPercent, dur: raw && raw.duration };
+  }
+  const icon = (job && m.byJob && m.byJob[job]) || m.icon || null;
+  return { name: m[S.lang] || m.en || abilityId, icon, mit: m.mit, dur: m.dur };
+}
+
+const PSEUDO_JOBS = { TANK: "tank", HEALER: "healer", MELEE: "melee", RANGED: "ranged", CASTER: "caster" };
+
+// Icone de job, ou pastille de role en repli. C'est ce repli qui fera que les
+// futurs jobs seront utilisables AVANT qu'on ait recupere leurs images : il n'y a
+// aucune liste de jobs codee en dur, tout vient de mapping.json et de l'API.
+function jobBadge(job) {
+  const j = S.map && S.map.jobs ? S.map.jobs[job] : null;
+  if (j && j.icon) {
+    return `<span class="job"><img src="${esc(j.icon)}" alt="${esc(job)}" title="${esc(job)}" loading="lazy" /></span>`;
+  }
+  // Un plan peut designer un poste par son role (« Melee 1 ») plutot que par un
+  // job : on colore quand meme la pastille. Et le libelle est tronque a trois
+  // lettres, sinon « RANGED » deborde de la pastille.
+  const role = (j && j.role) || PSEUDO_JOBS[job] || "";
+  return `<span class="job"><span class="chip ${esc(role)}" title="${esc(job)}">${esc(String(job).slice(0, 3))}</span></span>`;
+}
+
+function jobOf(playerId) {
+  const p = S.plan ? S.plan.players.find((x) => x.id === playerId) : null;
+  return p ? p.job : null;
+}
+
+// ------------------------------------------------------------------ chargement
+async function loadPlan(code) {
+  const err = $("err");
+  err.hidden = true;
+  if (!code) {
+    err.textContent = "Link or code not recognised.";
+    err.hidden = false;
+    return false;
+  }
+  $("load").disabled = true;
+  $("load").textContent = "Loading…";
+  try {
+    S.plan = await api("plan=" + encodeURIComponent(code));
+    const [fight, abilities, map] = await Promise.all([
+      api("fight=" + encodeURIComponent(S.plan.fightId)),
+      api("abilities=1"),
+      // La table de correspondance est un fichier statique : Apache la sert
+      // directement, sans faire tourner PHP.
+      fetch("mapping.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+    S.fight = fight;
+    S.abilities = abilities;
+    S.map = map;
+
+    const sel = $("player");
+    sel.innerHTML = "";
+    for (const p of S.plan.players) {
+      const n = S.plan.assignments.filter((a) => a.playerId === p.id).length;
+      const o = document.createElement("option");
+      o.value = p.id;
+      o.textContent = `${p.name || p.job} (${p.job}) — ${n} cue${n > 1 ? "s" : ""}`;
+      sel.appendChild(o);
+    }
+    const all = document.createElement("option");
+    all.value = "*";
+    all.textContent = `Whole party — ${S.plan.assignments.length} cues`;
+    sel.appendChild(all);
+
+    const last = localStorage.getItem("mitigoke.player." + code);
+    if (last && sel.querySelector(`option[value="${CSS.escape(last)}"]`)) sel.value = last;
+
+    localStorage.setItem("mitigoke.code", code);
+    $("opts").hidden = false;
+    $("opts").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return true;
+  } catch (e) {
+    err.textContent = e.message;
+    err.hidden = false;
+    return false;
+  } finally {
+    $("load").disabled = false;
+    $("load").textContent = "Load plan";
+  }
+}
+
+// --------------------------------------------------------------- construction
+function phaseAt(t) {
+  const p = (S.fight.phases || []).find((p) => t >= p.startTime && t < p.endTime);
+  return p ? p.name : "—";
+}
+
+// Action de boss la plus proche a partir du declenchement : le « pourquoi » du cue.
+function contextFor(t) {
+  const list = S.fight.bossActions || [];
+  let best = null;
+  for (const ba of list) {
+    if (ba.time >= t - 1 && (best === null || ba.time < best.time)) best = ba;
+  }
+  return best;
+}
+
+// Decalage applique : celui du salon (pose par le chef de groupe, il vaut pour
+// tout le monde) plus celui de chacun, qui n'ajuste que son propre affichage.
+function totalOffset() {
+  return (S.room ? (S.room.offset || 0) : 0) + num("offset");
+}
+
+function buildCues() {
+  const pid = $("player").value;
+  const off = totalOffset();
+  const players = Object.fromEntries(S.plan.players.map((p) => [p.id, p]));
+
+  S.cues = S.plan.assignments
+    .filter((a) => pid === "*" || a.playerId === pid)
+    .map((a) => {
+      const job = jobOf(a.playerId);
+      const v = abilityView(a.abilityId, job);
+      const ctx = contextFor(a.startTime);
+      return {
+        id: a.id,
+        t: a.startTime + off,
+        name: v.name,
+        icon: v.icon,
+        job,
+        detail: `${v.mit ? v.mit + "% · " : ""}${v.dur ? v.dur + "s" : ""}`.trim(),
+        who: players[a.playerId] ? (players[a.playerId].name || players[a.playerId].job) : "",
+        note: a.note || "",
+        ctx,
+        phase: phaseAt(a.startTime),
+      };
+    })
+    .sort((x, y) => x.t - y.t);
+
+  S.fired.clear();
+}
+
+// ------------------------------------------------------------------- prompteur
+function beep() {
+  if (!$("sound").checked) return;
+  try {
+    const ac = beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.18, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.18);
+    o.connect(g).connect(ac.destination);
+    o.start();
+    o.stop(ac.currentTime + 0.2);
+  } catch (_) { /* audio indisponible : sans importance */ }
+}
+
+function render() {
+  // La boucle tourne des le chargement de la page : tant qu'aucun plan n'est
+  // charge, il n'y a simplement rien a peindre.
+  if (!S.fight) return;
+
+  const lead = num("lead");
+  const t = S.t;
+
+  $("clock").textContent = fmt(t);
+  $("clock").classList.toggle("pre", t < 0);
+  $("phase").textContent = t >= 0 ? phaseAt(t) : "before pull";
+
+  // Le cue courant : le premier non encore passe (tolerance de 2 s apres).
+  const next = S.cues.find((c) => c.t > t - 2);
+  const zone = $("nowZone");
+
+  if (!next) {
+    $("nowBox").hidden = true;
+    $("idle").hidden = false;
+    $("idle").textContent = S.playing ? "Nothing left to trigger" : "Waiting for start";
+    zone.className = "now-zone";
+  } else {
+    const dt = next.t - t;
+    $("idle").hidden = true;
+    $("nowBox").hidden = false;
+    $("nowCount").textContent = dt > 0 ? dt.toFixed(1) + " s" : "NOW";
+    $("nowAb").textContent = next.name + (next.who && $("player").value === "*" ? " — " + next.who : "");
+
+    const ic = $("nowIcon");
+    if (next.icon) {
+      if (ic.getAttribute("src") !== next.icon) ic.src = next.icon;
+      ic.hidden = false;
+    } else {
+      ic.hidden = true;
+    }
+
+    $("nowFor").textContent = next.ctx
+      ? `for ${next.ctx.name}${next.ctx.type === "tb" ? " (tankbuster)" : ""} at ${fmt(next.ctx.time)}`
+      : "";
+    $("nowNote").textContent = next.note;
+    zone.className = "now-zone" + (dt <= 0 ? " fire" : dt <= lead ? " armed" : "");
+
+    if (S.playing && dt <= 0 && !S.fired.has(next.id)) {
+      S.fired.add(next.id);
+      beep();
+    }
+  }
+
+  // File d'attente : quelques passes + les suivantes.
+  const idx = S.cues.findIndex((c) => c.t > t - 2);
+  const from = Math.max(0, (idx === -1 ? S.cues.length : idx) - 2);
+  const slice = S.cues.slice(from, from + 12);
+  const showWho = $("player").value === "*";
+  $("queue").innerHTML = slice
+    .map((c) => {
+      const dt = c.t - t;
+      const done = dt <= -2;
+      const icon = c.icon
+        ? `<img class="icon" src="${esc(c.icon)}" alt="" loading="lazy" />`
+        : `<span class="slot"></span>`;
+      const ctx = c.ctx
+        ? `<span class="ctx">${esc(c.ctx.name)}${c.ctx.type === "tb" ? ' <span class="tb">TB</span>' : ""}</span>`
+        : "";
+      const inLbl = !done && dt > 0 ? `<span class="in">in ${Math.round(dt)} s</span>` : "";
+      const who = showWho && c.who
+        ? ` <span class="ctx">${c.job ? jobBadge(c.job) : ""} ${esc(c.who)}</span>`
+        : "";
+      return `<li class="${done ? "done" : ""}"><span class="t">${fmt(c.t)}</span>${icon}` +
+             `<span class="ab">${esc(c.name)}</span>${ctx}${who}${inLbl}</li>`;
+    })
+    .join("");
+}
+
+// Boucle d'affichage volontairement sur setInterval et non requestAnimationFrame :
+// rAF est suspendu des que la fenetre n'est plus composee (onglet en arriere-plan,
+// fenetre masquee), ce qui est precisement le cas d'un prompteur pose sur un
+// second ecran. Le temps est recalcule a chaque passage, jamais incremente, donc
+// meme si le navigateur bride la cadence, l'horloge ne derive jamais.
+function tick() {
+  if (S.room) {
+    // En equipe, la reference est l'horloge du SERVEUR : t0 est l'instant ou le
+    // combat atteint 00:00. Chacun le convertit dans son propre referentiel via
+    // l'ecart mesure au demarrage, ce qui rend les montres systeme sans effet.
+    const r = S.room;
+    if (r.paused && r.pausedAt !== null) {
+      S.t = r.pausedAt;
+      S.playing = false;
+    } else if (r.t0 !== null) {
+      S.t = (performance.now() + S.anchor - r.t0) / 1000;
+      S.playing = true;
+    } else {
+      S.t = -num("pre");
+      S.playing = false;
+    }
+  } else if (S.playing) {
+    S.t = (performance.now() - S.t0) / 1000 - num("pre");
+  }
+  render();
+}
+
+// --------------------------------------------------------------------- actions
+function startRun() {
+  if (S.room) { return leaderSet({ startIn: num("pre") }); }
+  buildCues();
+  S.t0 = performance.now();
+  S.playing = true;
+  $("pause").disabled = false;
+  $("pause").textContent = "Pause";
+}
+
+function togglePause() {
+  if (S.room) {
+    // Reprise : on renvoie un DELAI negatif, le serveur redate le 00:00. Le client
+    // ne fournit jamais d'horodatage, son horloge n'a pas autorite.
+    return S.room.paused ? leaderSet({ startIn: -S.t }) : leaderSet({ pausedAt: S.t });
+  }
+  if (!S.playing) {
+    S.t0 = performance.now() - (S.t + num("pre")) * 1000;
+    S.playing = true;
+    $("pause").textContent = "Pause";
+  } else {
+    S.playing = false;
+    $("pause").textContent = "Resume";
+  }
+}
+
+function resetRun() {
+  if (S.room) { return leaderSet({ stop: true }); }
+  S.playing = false;
+  S.t = -num("pre");
+  S.fired.clear();
+  $("pause").disabled = true;
+  $("pause").textContent = "Pause";
+}
+
+// ==========================================================================
+//  Synchronisation d'equipe
+// ==========================================================================
+
+async function sync(body) {
+  const r = await fetch("sync.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const d = await r.json().catch(() => null);
+  if (!r.ok || !d || d.error) throw new Error(d && d.error ? d.error : "Network error (" + r.status + ")");
+  return d;
+}
+
+/**
+ * Etalonnage de l'horloge. On sonde trois fois et on garde la mesure au plus
+ * court aller-retour : l'erreur est bornee par la moitie de celui-ci.
+ * On memorise l'ecart par rapport a performance.now(), qui est monotone, et non
+ * par rapport a Date.now(), que le systeme peut recaler en pleine session.
+ */
+async function calibrate() {
+  let best = Infinity;
+  for (let i = 0; i < 3; i++) {
+    const a = performance.now();
+    let d;
+    try {
+      d = await (await fetch("sync.php?now=1")).json();
+    } catch (_) { continue; }
+    const b = performance.now();
+    const rtt = b - a;
+    if (rtt < best && d && d.now) {
+      best = rtt;
+      S.anchor = d.now + rtt / 2 - b;   // epoch serveur = performance.now() + anchor
+    }
+  }
+  S.synced = best < Infinity;
+  return S.synced;
+}
+
+function applyRoom(r) {
+  const before = S.room;
+  S.room = r;
+  // Un changement de decalage commun doit se repercuter sur la file.
+  if (S.cues.length && (!before || before.offset !== r.offset)) buildCues();
+  if (before && before.t0 !== r.t0) S.fired.clear();
+  paintTeam();
+}
+
+async function pollRoom() {
+  if (!S.room) return;
+  try {
+    const r = await (await fetch("sync.php?room=" + encodeURIComponent(S.room.room))).json();
+    if (r && !r.error) applyRoom(r);
+  } catch (_) { /* coupure passagere : l'horloge locale continue toute seule */ }
+}
+
+async function leaderSet(patch) {
+  if (!S.room || !S.leaderKey) return;
+  try {
+    applyRoom(await sync(Object.assign({ action: "state", room: S.room.room, key: S.leaderKey }, patch)));
+  } catch (e) {
+    $("err").textContent = e.message;
+    $("err").hidden = false;
+  }
+}
+
+const isLeader = () => !!(S.room && S.leaderKey);
+
+function shareUrl() {
+  const u = new URL(location.href);
+  u.search = "";
+  u.searchParams.set("plan", S.room.plan);
+  u.searchParams.set("team", S.room.room);
+  return u.toString();
+}
+
+function paintTeam() {
+  const live = !!S.room;
+  $("teamIdle").hidden = live;
+  $("teamLive").hidden = !live;
+
+  if (!live) {
+    $("barTeam").textContent = "";
+    $("start").disabled = false;
+    $("pause").disabled = !S.playing && S.t === -num("pre");
+    $("reset").disabled = false;
+    return;
+  }
+
+  const role = isLeader() ? "leader" : "follower";
+  $("teamState").innerHTML = `Room <b>${esc(S.room.room)}</b> — ${esc(S.room.team)} · ${esc(role)}`;
+  $("teamState").className = "team-state" + (isLeader() ? "" : " follow");
+  $("shareBox").hidden = !isLeader();
+  if (isLeader()) $("shareLink").value = shareUrl();
+  $("teamHint").textContent = isLeader()
+    ? "Share this link: whoever opens it follows your clock. Keep this tab — it holds control."
+    : "The clock is driven by the party leader. Your personal offset stays yours.";
+
+  $("barTeam").innerHTML = ` · <b>${esc(S.room.room)}</b>${isLeader() ? "" : " (follower)"}`;
+  // Un suiveur n'a pas la main sur le chrono : les boutons sont inertes.
+  $("start").disabled = !isLeader();
+  $("pause").disabled = !isLeader() || S.room.t0 === null;
+  $("reset").disabled = !isLeader();
+  $("pause").textContent = S.room.paused ? "Resume" : "Pause";
+}
+
+async function createRoom() {
+  const team = $("teamName").value.trim();
+  const code = localStorage.getItem("mitigoke.code");
+  $("err").hidden = true;
+  if (!team) {
+    $("err").textContent = "Give the party a name.";
+    $("err").hidden = false;
+    return;
+  }
+  $("invite").disabled = true;
+  try {
+    if (!S.synced) await calibrate();
+    const d = await sync({ action: "create", team, plan: code });
+    S.leaderKey = d.leaderKey;
+    localStorage.setItem("mitigoke.key." + d.room, d.leaderKey);
+    applyRoom(d);
+  } catch (e) {
+    $("err").textContent = e.message;
+    $("err").hidden = false;
+  } finally {
+    $("invite").disabled = false;
+  }
+}
+
+async function joinRoom(room, keyFromUrl) {
+  try {
+    if (!S.synced) await calibrate();
+    const r = await (await fetch("sync.php?room=" + encodeURIComponent(room))).json();
+    if (!r || r.error) return null;
+    S.leaderKey = keyFromUrl || localStorage.getItem("mitigoke.key." + room) || null;
+    if (keyFromUrl) localStorage.setItem("mitigoke.key." + room, keyFromUrl);
+    applyRoom(r);
+    return r;
+  } catch (_) {
+    return null;
+  }
+}
+
+function leaveRoom() {
+  S.room = null;
+  S.leaderKey = null;
+  S.playing = false;
+  S.t = -num("pre");
+  paintTeam();
+  const u = new URL(location.href);
+  u.searchParams.delete("team");
+  history.replaceState(null, "", u.toString());
+}
+
+// ------------------------------------------------------------------- cablage
+$("load").addEventListener("click", () => loadPlan(extractCode($("link").value)));
+$("link").addEventListener("keydown", (e) => { if (e.key === "Enter") loadPlan(extractCode($("link").value)); });
+
+$("go").addEventListener("click", () => {
+  buildCues();
+  const p = S.plan.players.find((p) => p.id === $("player").value);
+  localStorage.setItem("mitigoke.player." + (localStorage.getItem("mitigoke.code") || ""), $("player").value);
+  $("who").innerHTML = (p ? jobBadge(p.job) : "") +
+                       ` <strong>${esc(p ? (p.name || p.job) : "Whole party")}</strong> · ${esc(S.fight.name)}` +
+                       `<br>${esc(S.plan.title || "untitled")} · ${S.cues.length} cues`;
+  $("setup").hidden = true;
+  $("opts").hidden = true;
+  $("stage").classList.add("on");
+  if (!S.room) resetRun(); else paintTeam();
+});
+
+$("back").addEventListener("click", () => {
+  if (!S.room) S.playing = false;
+  $("stage").classList.remove("on");
+  $("setup").hidden = false;
+  $("opts").hidden = false;
+});
+
+$("start").addEventListener("click", startRun);
+$("pause").addEventListener("click", togglePause);
+$("reset").addEventListener("click", resetRun);
+$("invite").addEventListener("click", createRoom);
+$("leaveTeam").addEventListener("click", leaveRoom);
+
+$("copyLink").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("shareLink").value);
+    $("copyLink").textContent = "Copied";
+    setTimeout(() => ($("copyLink").textContent = "Copy"), 1500);
+  } catch (_) {
+    $("shareLink").select();
+  }
+});
+
+// Le decalage perso se regle en direct pendant un run.
+$("offset").addEventListener("change", () => { if (S.cues.length) buildCues(); });
+$("lang").addEventListener("change", () => {
+  S.lang = $("lang").value;
+  localStorage.setItem("mitigoke.lang", S.lang);
+  if (S.cues.length) buildCues();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (!$("stage").classList.contains("on") || e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); S.playing ? togglePause() : startRun(); }
+  if (e.key === "r" || e.key === "R") resetRun();
+});
+
+// --------------------------------------------------------------- demarrage
+// L'interface est en anglais ; ce reglage-ci ne concerne que le nom des sorts,
+// pour lequel la langue du navigateur est un bon point de depart.
+S.lang = localStorage.getItem("mitigoke.lang")
+      || (navigator.language || "en").slice(0, 2).toLowerCase();
+if (!["en", "fr", "de", "ja"].includes(S.lang)) S.lang = "en";
+$("lang").value = S.lang;
+
+const q = new URLSearchParams(location.search);
+const fromUrl = q.get("plan");
+const teamUrl = q.get("team");
+const leadUrl = q.get("lead");
+
+// La cle leader ne doit pas trainer dans la barre d'adresse : on la range et on
+// la retire de l'URL, sinon un copier-coller distrait donnerait la main a tous.
+if (leadUrl) {
+  const u = new URL(location.href);
+  u.searchParams.delete("lead");
+  history.replaceState(null, "", u.toString());
+}
+
+// Reprise du dernier code utilise (l'ancienne cle « karaoke.* » est relue une
+// derniere fois, pour ne pas perdre le code de ceux qui reviennent).
+const remembered = localStorage.getItem("mitigoke.code") || localStorage.getItem("karaoke.code");
+$("link").value = fromUrl || remembered || "";
+
+(async () => {
+  // Un lien du type .../?plan=CODE&team=SALON charge tout seul : le raid leader
+  // diffuse une seule URL, chacun n'a plus qu'a choisir son poste.
+  if (fromUrl) {
+    const ok = await loadPlan(extractCode(fromUrl));
+    if (ok && teamUrl) await joinRoom(teamUrl, leadUrl);
+  }
+  paintTeam();
+})();
+
+setInterval(tick, 100);
+setInterval(pollRoom, 2000);
+</script>
+</body>
+</html>

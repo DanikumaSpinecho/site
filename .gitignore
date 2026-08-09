@@ -1,0 +1,20 @@
+# Donnees ecrites par les scripts PHP a l'execution : elles appartiennent au
+# serveur, pas au depot.
+.cache/
+.sync/
+.mapping-backups/
+*.tmp
+
+# Systeme et editeurs
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
+
+# NB : mapping.json est VOLONTAIREMENT suivi. C'est une donnee du projet, pas un
+# artefact : sans lui l'application n'a ni noms localises ni icones. Elle peut
+# etre modifiee en ligne depuis /admin/, donc la copie deployee peut diverger de
+# celle du depot — penser a la recuperer avant de committer si on l'a editee la-bas.

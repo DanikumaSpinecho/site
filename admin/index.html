@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate" />
+<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+<meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
+<meta name="referrer" content="no-referrer" />
+<meta name="robots" content="noai, noimageai" />
+<title>Mitigoke — ability mapping</title>
+<style>
+  :root {
+    --bg: #0a0e13; --panel: #141b24; --line: #253243; --text: #e6edf5;
+    --muted: #8fa3ba; --accent: #4da3ff; --soon: #47d18b; --warn: #ffcc48; --bad: #ff8b7a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 20px 18px 80px; }
+  h1 { font-size: 1.25rem; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: .87rem; margin-bottom: 18px; }
+  a { color: var(--accent); }
+
+  .toolbar {
+    position: sticky; top: 0; z-index: 20; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  input, select, button {
+    font: inherit; color: var(--text); background: #0e141c;
+    border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px;
+  }
+  button { cursor: pointer; background: #1b2836; border-color: #33445a; }
+  button:hover { background: #24374a; }
+  button.primary { background: var(--accent); color: #04121f; border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .grow { flex: 1 1 220px; }
+  .stat { color: var(--muted); font-size: .85rem; }
+  .stat b { color: var(--text); }
+  .dirty { color: var(--warn); font-weight: 600; }
+  .msg { margin-left: auto; font-size: .87rem; }
+  .msg.ok { color: var(--soon); } .msg.bad { color: var(--bad); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: left; }
+  th { position: sticky; top: 64px; background: var(--bg); z-index: 10;
+       font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  td input { width: 100%; padding: 5px 7px; font-size: .9rem; }
+  tr:hover td { background: #10171f; }
+  .id { font-family: ui-monospace, Consolas, monospace; font-size: .78rem; color: var(--muted); white-space: nowrap; }
+  .job { font-size: .78rem; color: var(--muted); }
+  .thumb { width: 34px; height: 34px; border-radius: 6px; display: block; background: #0e141c; }
+  .thumb.none { border: 1px dashed var(--line); }
+  .iconcell { display: flex; align-items: center; gap: 8px; min-width: 320px; }
+  .iconcell input { font-family: ui-monospace, Consolas, monospace; font-size: .74rem; }
+  .official { font-size: .74rem; color: var(--muted); white-space: nowrap; }
+  .byjob { font-size: .72rem; color: var(--soon); white-space: nowrap; }
+  .note { color: var(--muted); font-size: .85rem; margin: 14px 0 6px; }
+
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+           border-radius: 12px; padding: 18px; max-width: 620px; width: 92%; }
+  dialog::backdrop { background: rgba(0,0,0,.62); }
+  .pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 8px; margin-top: 14px;
+          max-height: 320px; overflow-y: auto; }
+  .pick figure { margin: 0; cursor: pointer; text-align: center; }
+  .pick img { width: 44px; height: 44px; border-radius: 6px; border: 2px solid transparent; }
+  .pick figure:hover img { border-color: var(--accent); }
+  .pick figcaption { font-size: .6rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Ability mapping</h1>
+  <div class="sub">
+    Display name per language and icon, for every ability in the xivmit catalogue.
+    Changes are written to <code>mapping.json</code>.
+    <a href="../">Back to the prompter</a>
+  </div>
+
+  <div class="toolbar">
+    <input class="grow" id="q" placeholder="Filter: name, id, job…" autocomplete="off" />
+    <select id="filter" style="flex:0 0 auto">
+      <option value="">Everything</option>
+      <option value="noicon">No icon</option>
+      <option value="nofr">No French name</option>
+      <option value="community">Community labels</option>
+      <option value="byjob">Per-job icon</option>
+    </select>
+    <span class="stat" id="stat"></span>
+    <button class="primary" id="save" disabled>Save</button>
+    <span class="msg" id="msg"></span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:170px">Identifier</th>
+        <th style="width:60px">Job</th>
+        <th>English</th>
+        <th>Français</th>
+        <th>Deutsch</th>
+        <th>日本語</th>
+        <th style="width:360px">Icon</th>
+        <th style="width:150px">Game action</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div class="note" id="foot"></div>
+</div>
+
+<dialog id="picker">
+  <strong>Pick an icon</strong>
+  <div class="sub" id="pickFor" style="margin:4px 0 0"></div>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <input class="grow" id="pickQ" placeholder="Search: reprisal, holmgang, benefic…" autocomplete="off" />
+    <button id="pickClear">No icon</button>
+    <button id="pickClose">Close</button>
+  </div>
+  <div class="pick" id="pickResults"></div>
+</dialog>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+let DOC = null;        // le document mapping.json complet
+let dirty = false;
+let pickTarget = null; // identifiant de la capacite en cours d'edition
+
+function setDirty(v) {
+  dirty = v;
+  $("save").disabled = !v;
+  $("stat").innerHTML = statLine();
+}
+
+function statLine() {
+  if (!DOC) return "";
+  const a = Object.values(DOC.abilities);
+  const noIcon = a.filter((e) => !e.icon && !e.byJob).length;
+  const noFr = a.filter((e) => !e.fr).length;
+  return `<b>${a.length}</b> abilities · <b>${noIcon}</b> without icon · <b>${noFr}</b> without French`
+       + (dirty ? ' · <span class="dirty">unsaved changes</span>' : "");
+}
+
+function matches(id, e) {
+  const q = $("q").value.trim().toLowerCase();
+  const f = $("filter").value;
+  if (f === "noicon" && (e.icon || e.byJob)) return false;
+  if (f === "nofr" && e.fr) return false;
+  if (f === "community" && !e.official && e.fr) return false;
+  if (f === "byjob" && !e.byJob) return false;
+  if (!q) return true;
+  return (id + " " + (e.job || "") + " " + (e.en || "") + " " + (e.fr || "") +
+          " " + (e.de || "") + " " + (e.ja || "")).toLowerCase().includes(q);
+}
+
+function draw() {
+  const body = $("rows");
+  const out = [];
+  let shown = 0;
+
+  for (const [id, e] of Object.entries(DOC.abilities)) {
+    if (!matches(id, e)) continue;
+    shown++;
+    const icon = e.icon || "";
+    const thumb = icon
+      ? `<img class="thumb" src="../${esc(icon)}" alt="" loading="lazy" />`
+      : `<span class="thumb none"></span>`;
+    const byJob = e.byJob
+      ? `<div class="byjob" title="${esc(Object.entries(e.byJob).map(([j, p]) => j + " → " + p).join("\n"))}">per job: ${esc(Object.keys(e.byJob).join(" "))}</div>`
+      : "";
+    const ref = e.official
+      ? `<span class="official" title="${esc(e.official.fr || "")}">${esc(e.official.en || "")}</span>`
+      : "";
+
+    out.push(
+      `<tr data-id="${esc(id)}">` +
+        `<td class="id">${esc(id)}</td>` +
+        `<td class="job">${esc(e.job || "")}</td>` +
+        `<td><input data-f="en" value="${esc(e.en || "")}" /></td>` +
+        `<td><input data-f="fr" value="${esc(e.fr || "")}" /></td>` +
+        `<td><input data-f="de" value="${esc(e.de || "")}" /></td>` +
+        `<td><input data-f="ja" value="${esc(e.ja || "")}" /></td>` +
+        `<td><div class="iconcell">${thumb}` +
+          `<input data-f="icon" value="${esc(icon)}" placeholder="none" />` +
+          `<button data-act="pick">…</button></div>${byJob}</td>` +
+        `<td>${ref}</td>` +
+      `</tr>`
+    );
+  }
+
+  body.innerHTML = out.join("");
+  $("foot").textContent = `${shown} row${shown > 1 ? "s" : ""} shown.`;
+  $("stat").innerHTML = statLine();
+}
+
+// Edition : on ecrit directement dans DOC, le tableau n'est qu'une vue.
+$("rows").addEventListener("input", (ev) => {
+  const inp = ev.target.closest("input[data-f]");
+  if (!inp) return;
+  const id = inp.closest("tr").dataset.id;
+  const f = inp.dataset.f;
+  const v = inp.value.trim();
+  if (v) DOC.abilities[id][f] = v; else delete DOC.abilities[id][f];
+  if (f === "icon") {
+    const cell = inp.closest(".iconcell");
+    const old = cell.querySelector(".thumb");
+    const neu = document.createElement(v ? "img" : "span");
+    neu.className = "thumb" + (v ? "" : " none");
+    if (v) neu.src = "../" + v;
+    old.replaceWith(neu);
+  }
+  setDirty(true);
+});
+
+$("rows").addEventListener("click", (ev) => {
+  const b = ev.target.closest('button[data-act="pick"]');
+  if (!b) return;
+  pickTarget = b.closest("tr").dataset.id;
+  const e = DOC.abilities[pickTarget];
+  $("pickFor").textContent = `${pickTarget} — ${e.en || ""}`;
+  $("pickQ").value = (e.en || "").split(" ")[0] || "";
+  $("picker").showModal();
+  searchIcons();
+});
+
+let pickTimer = null;
+$("pickQ").addEventListener("input", () => {
+  clearTimeout(pickTimer);
+  pickTimer = setTimeout(searchIcons, 220);
+});
+
+async function searchIcons() {
+  const q = $("pickQ").value.trim();
+  const box = $("pickResults");
+  if (q.length < 2) { box.innerHTML = ""; return; }
+  try {
+    const d = await (await fetch("../icons.php?q=" + encodeURIComponent(q))).json();
+    box.innerHTML = (d.results || [])
+      .map((p) => `<figure data-p="${esc(p)}"><img src="../${esc(p)}" alt="" loading="lazy" />` +
+                  `<figcaption title="${esc(p)}">${esc(p.split("/").pop().replace(/\.\w+$/, ""))}</figcaption></figure>`)
+      .join("") || '<div class="sub">No match.</div>';
+  } catch (_) {
+    box.innerHTML = '<div class="sub">Search unavailable.</div>';
+  }
+}
+
+$("pickResults").addEventListener("click", (ev) => {
+  const f = ev.target.closest("figure[data-p]");
+  if (!f || !pickTarget) return;
+  DOC.abilities[pickTarget].icon = f.dataset.p;
+  $("picker").close();
+  setDirty(true);
+  draw();
+});
+
+$("pickClear").addEventListener("click", () => {
+  if (pickTarget) delete DOC.abilities[pickTarget].icon;
+  $("picker").close();
+  setDirty(true);
+  draw();
+});
+$("pickClose").addEventListener("click", () => $("picker").close());
+
+$("q").addEventListener("input", draw);
+$("filter").addEventListener("change", draw);
+
+$("save").addEventListener("click", async () => {
+  $("save").disabled = true;
+  $("msg").textContent = "Saving…";
+  $("msg").className = "msg";
+  try {
+    const r = await fetch("../mapping.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(DOC),
+    });
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || "Error " + r.status);
+    $("msg").textContent = `Saved — ${d.abilities} abilities.`;
+    $("msg").className = "msg ok";
+    setDirty(false);
+  } catch (e) {
+    $("msg").textContent = e.message;
+    $("msg").className = "msg bad";
+    $("save").disabled = false;
+  }
+});
+
+window.addEventListener("beforeunload", (e) => {
+  if (dirty) { e.preventDefault(); e.returnValue = ""; }
+});
+
+(async () => {
+  try {
+    DOC = await (await fetch("../mapping.json?" + Date.now())).json();
+    draw();
+  } catch (e) {
+    $("foot").textContent = "Could not load mapping.json: " + e.message;
+  }
+})();
+</script>
+</body>
+</html>

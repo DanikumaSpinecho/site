@@ -1,0 +1,17 @@
+# Fins de ligne normalisees en LF dans le depot : le projet est edite sous
+# Windows mais deploye sur un serveur Unix.
+* text=auto eol=lf
+
+*.php   text eol=lf
+*.html  text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.svg   text eol=lf
+.htaccess text eol=lf
+
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.ico   binary

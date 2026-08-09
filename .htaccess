@@ -1,0 +1,81 @@
+# Mitigoke — configuration Apache/LiteSpeed (Hostinger)
+# Ce dossier EST la racine web du sous-domaine : son contenu est copie tel quel.
+
+# Pas de listing de repertoire
+Options -Indexes
+
+# --- Blocage de l'indexation ------------------------------------------------
+# En-tete HTTP applique a TOUTES les reponses, y compris les erreurs (« always »),
+# et pas seulement aux pages HTML : il couvre aussi mapping.json et les icones,
+# la ou une balise <meta> ne peut rien.
+#
+# C'est cet en-tete qui fait autorite, pas robots.txt : robots.txt ne fait
+# qu'empecher l'exploration, et une URL non explorable peut malgre tout etre
+# listee. Voir le commentaire en tete de robots.txt.
+<IfModule mod_headers.c>
+  Header always set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate"
+
+  # Ne pas divulguer notre adresse aux sites vers lesquels on pointe : sans cela,
+  # un clic vers xivmit.app ferait apparaitre ce domaine dans leurs statistiques.
+  Header always set Referrer-Policy "no-referrer"
+
+  # Ceintures et bretelles pendant qu'on y est.
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# --- Robots refuses a la porte ----------------------------------------------
+# robots.txt repose sur la bonne volonte du visiteur ; ceci n'en depend pas.
+# On ne bloque QUE des robots nommement identifies : surtout pas curl, wget ni
+# les bibliotheques HTTP generiques, qui servent aux verifications de sante.
+# Les moteurs de recherche, eux, sont laisses passer expres : c'est ainsi qu'ils
+# lisent le noindex ci-dessus et retirent l'URL.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  RewriteCond %{HTTP_USER_AGENT} (GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|Google-Extended|Applebot-Extended|PerplexityBot|Perplexity-User|meta-externalagent|FacebookBot|Amazonbot|Bytespider|CCBot|cohere-ai|cohere-training-data-crawler|AI2Bot|Diffbot|DuckAssistBot|ImagesiftBot|Omgilibot|Omgili|PanguBot|Timpibot|Webzio|YouBot) [NC,OR]
+  RewriteCond %{HTTP_USER_AGENT} (AhrefsBot|SemrushBot|MJ12bot|DotBot|DataForSeoBot|BLEXBot|Barkrowler|PetalBot|serpstatbot|ZoominfoBot|SeekportBot|Screaming\ Frog|SiteAuditBot|MegaIndex|Sogou|Bytedance) [NC]
+  RewriteRule ^ - [F,L]
+
+  # --- Donnees de service : inaccessibles depuis le web ---------------------
+  # .cache/           reponses mises en cache du proxy xivmit
+  # .sync/            salons de synchronisation d'equipe (contiennent l'empreinte
+  #                   de la cle du chef de groupe : rien a exposer)
+  # .mapping-backups/ versions precedentes de la table de correspondance
+  # .git/             ce dossier EST un depot git : un transfert recursif un peu
+  #                   distrait suffirait a publier tout l'historique
+  RewriteRule ^\.cache/ - [F,L]
+  RewriteRule ^\.sync/ - [F,L]
+  RewriteRule ^\.mapping-backups/ - [F,L]
+  RewriteRule ^\.git($|/) - [F,L]
+  RewriteRule ^\.gitattributes$ - [F,L]
+</IfModule>
+
+# --- Compression -------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# --- Cache navigateur --------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # Icones du jeu : stables, jamais renommees
+  <FilesMatch "\.(png|jpe?g|gif|svg|webp|ico)$">
+    ExpiresDefault "access plus 30 days"
+  </FilesMatch>
+
+  # La page du prompteur : jamais mise en cache, sinon les corrections ne sortent pas
+  <FilesMatch "^index\.html$">
+    ExpiresDefault "access plus 0 seconds"
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # La table de correspondance change des qu'on la modifie depuis admin/
+  <FilesMatch "^mapping\.json$">
+    ExpiresDefault "access plus 0 seconds"
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
