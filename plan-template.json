@@ -1,0 +1,49 @@
+{
+  "_doc": "Mitigoke manual plan. JSON has no comments: every field is described in the project's local_mit_plan/CONTEXT.md. Times are SECONDS SINCE PULL. Delete the _doc keys before use, or leave them, they are ignored.",
+
+  "format": "mitigoke-plan/1",
+  "title": "My plan",
+  "author": "",
+  "updated": "2026-08-10",
+
+  "fight": {
+    "id": "my-fight",
+    "name": "My Fight (Savage)",
+    "shortName": "MYF",
+    "duration": 600,
+
+    "_doc_phases": "Optional. Shown as a tag next to the clock.",
+    "phases": [
+      { "name": "Phase 1", "startTime": 0, "endTime": 300 },
+      { "name": "Phase 2", "startTime": 300, "endTime": 600 }
+    ],
+
+    "_doc_mechanics": "Optional. Named time windows. A mechanic groups the casts that fall inside it, and groups the cues in the queue.",
+    "mechanics": [
+      { "id": "m0", "name": "First Mechanic", "startTime": 40, "endTime": 75 }
+    ],
+
+    "_doc_bossActions": "What you are mitigating. type is \"tb\" (tankbuster) or \"raid\".",
+    "bossActions": [
+      { "id": "ba0", "name": "Big Tankbuster", "type": "tb", "time": 20, "castTime": 4.2 },
+      { "id": "ba1", "name": "First Raidwide", "type": "raid", "time": 46 },
+      { "id": "ba2", "name": "Second Raidwide", "type": "raid", "time": 62 }
+    ]
+  },
+
+  "_doc_players": "One entry per slot. job may be a real job (PLD, WHM…) or a role (TANK, HEALER, MELEE, RANGED, CASTER).",
+  "players": [
+    { "id": "p1", "job": "PLD", "name": "MT" },
+    { "id": "p2", "job": "WHM", "name": "WHM" }
+  ],
+
+  "_doc_assignments": "startTime is when the ability must be PRESSED, in seconds since pull. abilityId should come from mapping.json; anything else needs an entry in \"abilities\" below.",
+  "assignments": [
+    { "playerId": "p1", "abilityId": "pld_rampart", "startTime": 16 },
+    { "playerId": "p1", "abilityId": "pld_sheltron", "startTime": 18, "note": "Right after Rampart" },
+    { "playerId": "p2", "abilityId": "whm_temperance", "startTime": 42 }
+  ],
+
+  "_doc_abilities": "Optional. Only needed for abilities missing from mapping.json, or to override a name or icon. Keys are the abilityId used above.",
+  "abilities": {}
+}

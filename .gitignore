@@ -5,6 +5,11 @@
 .mapping-backups/
 *.tmp
 
+# Copies de securite prises a la main avant une regeneration : utiles en local,
+# sans interet dans l'historique.
+*.bak
+*.bak-*
+
 # Systeme et editeurs
 Thumbs.db
 desktop.ini

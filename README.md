@@ -113,8 +113,57 @@ in-game action — *Spreadlo*, *Kitchen Sink*, *Party Mit*, *Invuln* — it is a
 Translating it would make it unrecognisable, so it is shown as-is in every language, with
 the underlying action's official names kept alongside for reference.
 
-Edit any of this at **`/admin/`**: a table of every ability, with filters, an icon picker
-and per-language name fields.
+Each ability also carries a **duration**. When one is still running, its icon stays in the
+bottom-left of the now panel, pulsing, with the seconds left — so what is still protecting
+the party is visible without reading the log. Durations are the effective ones for level
+100 content: Reprisal, Feint and Addle are recorded at 15 s, not the 10 s of the base data,
+because they are upgraded at level 98.
+
+Twenty-two abilities have no duration on purpose. Benediction, Lustrate, Assize,
+Tetragrammaton and the rest are instant heals, and Provoke and Shirk are pure utility:
+there is nothing to keep on screen.
+
+Edit any of this at **`/admin/`**: a table of every ability, with filters, an icon picker,
+per-language name fields and the duration column.
+
+## Loading a plan from a file
+
+The upstream API is public but neither documented nor contractual, so there is a fallback:
+the discreet **“Load a plan file…”** link under the code field opens a local JSON file
+instead of fetching one. Nothing is uploaded — the file is read in the browser.
+
+JSON, because it is exactly what the prompter already reads: no parser to add, no
+dependency, and it stays editable by hand. The shape mirrors the upstream data, wrapped:
+
+```json
+{
+  "format": "mitigoke-plan/1",
+  "title": "My plan",
+  "fight":       { "name": "…", "duration": 600,
+                   "phases": [], "mechanics": [], "bossActions": [] },
+  "players":     [ { "id": "p1", "job": "PLD", "name": "MT" } ],
+  "assignments": [ { "playerId": "p1", "abilityId": "pld_rampart", "startTime": 12 } ],
+  "abilities":   { }
+}
+```
+
+All times are **seconds since the pull**, and `startTime` is when the ability is *pressed*,
+not when it lands. `abilities` is optional: names and icons come from `mapping.json`, and
+this block only adds or overrides entries — enough to make a plan fully self-contained.
+
+Everything file-related lives behind the small **local** toggle under the code field, which
+expands to *load*, *export* and *template*.
+
+- **load** — open a plan file. The loader validates before displaying anything and names
+  the offending entry: `assignments[3] points at unknown player "p99"`.
+- **export** — freeze the plan currently loaded, upstream or not, into the same format.
+  One entry per line, so the file stays readable and diffs cleanly.
+- **template** — download the skeleton, [plan-template.json](plan-template.json).
+
+Party sync still works with a local plan. It gets a `LOCAL-…` code derived from its
+contents, so the invite link carries it, and whoever opens that link is asked to load their
+own copy of the file — the room is then joined automatically. Because the code comes from
+the contents, two diverging copies produce two different codes, which is how you notice.
 
 ## Requirements
 
@@ -181,7 +230,23 @@ stale cache is served rather than an error if upstream is unreachable.
 
 ## Version
 
+**0.0.3**
+
+- **Export.** The `local` menu now folds together *load*, *export* and *template*. Export
+  freezes the loaded plan as a `mitigoke-plan/1` file — one entry per line, readable and
+  diffable — so a plan can be saved while the upstream API still answers.
+- **Warning beeps.** Two quiet low beeps at 2 s and 1 s before each cue, then the usual
+  bright one on the action. You hear a countdown instead of being startled.
+- **Active cooldowns.** An ability whose duration is still running keeps its icon in the
+  bottom-left of the now panel, pulsing, with the seconds left. What is still protecting
+  you is visible at a glance.
+- **Duration column** in `/admin/`, and 17 corrected durations: Reprisal, Feint and Addle
+  last 15 s at level 98+, not the 10 s the base data reports.
+
 **0.0.2**
+
+- Manual plan files: a JSON plan can be opened from disk, with per-field validation and a
+  downloadable template. Insurance against the upstream API disappearing.
 
 - Whole plan in the queue instead of a twelve-row window. The old window looked like the
   plan simply stopped — for a White Mage on Dancing Mad the twelfth row falls at 4:59,

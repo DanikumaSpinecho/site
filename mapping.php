@@ -87,6 +87,24 @@ foreach ($doc['abilities'] as $id => $entry) {
             fail(400, "Per-job icon rejected for $id.");
         }
     }
+
+    // duree et pourcentage doivent etre des NOMBRES : le prompteur calcule
+    // t + dur pour savoir si un effet court encore, et une chaine "15" y
+    // concatenerait au lieu d'additionner. On coupe le probleme a l'entree.
+    foreach (['dur', 'mit'] as $k) {
+        if (!isset($entry[$k]) || $entry[$k] === '' || $entry[$k] === null) {
+            unset($doc['abilities'][$id][$k]);
+            continue;
+        }
+        if (!is_numeric($entry[$k])) {
+            fail(400, "\"$k\" must be a number for $id.");
+        }
+        $v = (float) $entry[$k];
+        if ($v <= 0 || $v > 3600) {
+            fail(400, "\"$k\" out of range for $id.");
+        }
+        $doc['abilities'][$id][$k] = ($v == (int) $v) ? (int) $v : $v;
+    }
 }
 
 foreach ((array) ($doc['jobs'] ?? []) as $job => $j) {
