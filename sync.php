@@ -32,6 +32,7 @@ const SYNC_DIR   = __DIR__ . '/.sync';
 const ROOM_TTL   = 43200;   // 12 h : au-dela, un salon n'interesse plus personne
 const MAX_ROOMS  = 500;     // garde-fou, largement au-dessus d'un usage normal
 const MAX_BODY   = 4096;
+const PRES_TTL   = 25;      // s : sans signe de vie, un poste est repute parti
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -79,6 +80,40 @@ function writeRoom(string $room, array $data): bool {
     return true;
 }
 
+/**
+ * Presence : UN FICHIER PAR PARTICIPANT, et surtout pas une liste dans le fichier
+ * du salon. Huit clients qui reecrivent le meme fichier se perdraient mutuellement
+ * leurs mises a jour — l'ecriture atomique par rename() remplace le fichier entier,
+ * dernier arrive gagne. Un fichier chacun evite tout verrou et toute perte.
+ *
+ * Rien de personnel n'y circule : l'identifiant du poste et son job, c'est tout.
+ */
+function presFile(string $room, string $slot): string {
+    return SYNC_DIR . '/' . $room . '.' . $slot . '.pres';
+}
+
+function presence(string $room): array {
+    $out = [];
+    $now = time();
+    // Le nom du salon est valide en [a-z0-9-] : aucun caractere special pour glob.
+    foreach (glob(SYNC_DIR . '/' . $room . '.*.pres') ?: [] as $f) {
+        $age = $now - filemtime($f);
+        if ($age > PRES_TTL) {
+            @unlink($f);          // perime : le poste a ferme son onglet
+            continue;
+        }
+        $d = json_decode((string) file_get_contents($f), true);
+        if (is_array($d) && isset($d['slot'])) {
+            $out[] = [
+                'slot' => (string) $d['slot'],
+                'job'  => (string) ($d['job'] ?? ''),
+                'age'  => $age,
+            ];
+        }
+    }
+    return $out;
+}
+
 /** Balayage des salons perimes. Appele a la creation seulement : c'est assez. */
 function sweep(): int {
     if (!is_dir(SYNC_DIR)) {
@@ -96,6 +131,11 @@ function sweep(): int {
     foreach (glob(SYNC_DIR . '/*.tmp') ?: [] as $f) {
         if ($now - filemtime($f) > 60) {
             @unlink($f);   // residu d'une ecriture interrompue
+        }
+    }
+    foreach (glob(SYNC_DIR . '/*.pres') ?: [] as $f) {
+        if ($now - filemtime($f) > PRES_TTL * 4) {
+            @unlink($f);   // presence d'un salon que plus personne ne lit
         }
     }
     return $n;
@@ -149,7 +189,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         if ($r === null) {
             fail(404, 'Room not found or expired.');
         }
-        out(publicView($room, $r));
+        $view = publicView($room, $r);
+        // La liste des presents n'est calculee que si on la demande : le sondage
+        // a 2 s des suiveurs n'a aucune raison de balayer un dossier.
+        if (isset($_GET['who'])) {
+            $view['present'] = presence($room);
+        }
+        out($view);
     }
     fail(400, 'Expected parameter: room or now.');
 }
@@ -253,6 +299,36 @@ if ($action === 'state') {
         fail(500, 'Could not save.');
     }
     out(publicView($room, $r));
+}
+
+if ($action === 'hello') {
+    // Signal de vie d'un participant. Volontairement separe du sondage de lecture,
+    // et bien plus espace : c'est la seule ecriture que fera un suiveur.
+    $room = (string) ($in['room'] ?? '');
+    $slot = (string) ($in['slot'] ?? '');
+    $job  = (string) ($in['job'] ?? '');
+    if (!preg_match('/^[a-z0-9-]{3,32}$/', $room)) {
+        fail(400, 'Invalid room identifier.');
+    }
+    if (!preg_match('/^[A-Za-z0-9_-]{1,24}$/', $slot)) {
+        fail(400, 'Invalid slot identifier.');
+    }
+    if (!preg_match('/^[A-Za-z]{0,10}$/', $job)) {
+        fail(400, 'Invalid job code.');
+    }
+    if (readRoom($room) === null) {
+        fail(404, 'Room not found or expired.');
+    }
+
+    $f   = presFile($room, $slot);
+    $tmp = $f . '.' . bin2hex(random_bytes(4)) . '.tmp';
+    $ok  = @file_put_contents($tmp, json_encode(['slot' => $slot, 'job' => $job], JSON_UNESCAPED_UNICODE)) !== false
+        && @rename($tmp, $f);
+    if (!$ok) {
+        @unlink($tmp);
+        fail(500, 'Could not record presence.');
+    }
+    out(['ok' => true]);
 }
 
 fail(400, 'Unknown action.');

@@ -56,6 +56,17 @@
   .iconcell input { font-family: ui-monospace, Consolas, monospace; font-size: .74rem; }
   .official { font-size: .74rem; color: var(--muted); white-space: nowrap; }
   .byjob { font-size: .72rem; color: var(--soon); white-space: nowrap; }
+
+  /* Capacites generiques : « Party Mit » n'est pas la meme action selon le job.
+     Le bouton + deplie une ligne par job candidat, deduit du role de l'entree. */
+  button.expand { padding: 4px 9px; font-weight: 700; line-height: 1; }
+  button.expand.on { background: var(--accent); color: #04121f; border-color: var(--accent); }
+  tr.jobrow td { background: #0d131b; padding: 10px 14px 12px 60px; }
+  .joblines { display: flex; flex-direction: column; gap: 6px; }
+  .jobline { display: flex; align-items: center; gap: 8px; }
+  .jobcode { width: 3em; font-weight: 700; font-size: .78rem; color: var(--soon); }
+  .jobline input { flex: 1 1 auto; font-family: ui-monospace, Consolas, monospace; font-size: .74rem; }
+  .jobhint { color: var(--muted); font-size: .76rem; margin-bottom: 4px; }
   .note { color: var(--muted); font-size: .85rem; margin: 14px 0 6px; }
 
   dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line);
@@ -134,7 +145,21 @@ const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
 
 let DOC = null;        // le document mapping.json complet
 let dirty = false;
-let pickTarget = null; // identifiant de la capacite en cours d'edition
+let pickTarget = null; // { id, job } — job nul pour l'icone principale
+const expanded = new Set();   // capacites dont les lignes par job sont depliees
+
+// Le champ « job » d'une capacite vaut parfois un ROLE. C'est ce qui permet de
+// proposer exactement les bons jobs sans aucune liste en dur : le role de chaque
+// job est dans mapping.json, donc un futur job entrera tout seul dans la liste.
+const ABILITY_ROLES = { TANK: "tank", HEALER: "healer", MELEE: "melee", RANGED: "ranged", CASTER: "caster" };
+
+function candidateJobs(e) {
+  const jobs = DOC.jobs || {};
+  const role = ABILITY_ROLES[String(e.job || "").toUpperCase()];
+  const all = Object.keys(jobs);
+  if (!role) return all;                       // job reel, ou EXTRAS : on propose tout
+  return all.filter((j) => (jobs[j] || {}).role === role);
+}
 
 function setDirty(v) {
   dirty = v;
@@ -164,6 +189,30 @@ function matches(id, e) {
   if (!q) return true;
   return (id + " " + (e.job || "") + " " + (e.en || "") + " " + (e.fr || "") +
           " " + (e.de || "") + " " + (e.ja || "")).toLowerCase().includes(q);
+}
+
+/** Une ligne par job candidat, plus ceux deja renseignes hors du role. */
+function jobRows(id, e) {
+  const byJob = e.byJob || {};
+  const jobs = [...new Set([...Object.keys(byJob), ...candidateJobs(e)])];
+  const lines = jobs.map((j) => {
+    const p = byJob[j] || "";
+    const thumb = p
+      ? `<img class="thumb" src="../${esc(p)}" alt="" loading="lazy" />`
+      : `<span class="thumb none"></span>`;
+    return `<div class="jobline">` +
+             `<span class="jobcode">${esc(j)}</span>${thumb}` +
+             `<input data-jf="${esc(j)}" value="${esc(p)}" placeholder="no icon for this job" />` +
+             `<button data-act="pickjob" data-job="${esc(j)}">…</button>` +
+           `</div>`;
+  }).join("");
+
+  const role = ABILITY_ROLES[String(e.job || "").toUpperCase()];
+  const hint = role
+    ? `Jobs of role “${esc(role)}”. A job listed here overrides the main icon.`
+    : `No role on this entry, so every job is offered.`;
+  return `<tr class="jobrow" data-id="${esc(id)}"><td colspan="9">` +
+         `<div class="jobhint">${hint}</div><div class="joblines">${lines}</div></td></tr>`;
 }
 
 function draw() {
@@ -197,10 +246,14 @@ function draw() {
           `value="${e.dur === undefined ? "" : esc(e.dur)}" placeholder="—" /></td>` +
         `<td><div class="iconcell">${thumb}` +
           `<input data-f="icon" value="${esc(icon)}" placeholder="none" />` +
-          `<button data-act="pick">…</button></div>${byJob}</td>` +
+          `<button data-act="pick">…</button>` +
+          `<button class="expand${expanded.has(id) ? " on" : ""}" data-act="expand" ` +
+            `title="Assign a different ability per job">+</button>` +
+        `</div>${byJob}</td>` +
         `<td>${ref}</td>` +
       `</tr>`
     );
+    if (expanded.has(id)) out.push(jobRows(id, e));
   }
 
   body.innerHTML = out.join("");
@@ -209,6 +262,31 @@ function draw() {
 }
 
 // Edition : on ecrit directement dans DOC, le tableau n'est qu'une vue.
+// Saisie d'une icone par job.
+$("rows").addEventListener("input", (ev) => {
+  const inp = ev.target.closest("input[data-jf]");
+  if (!inp) return;
+  const id = inp.closest("tr.jobrow").dataset.id;
+  const job = inp.dataset.jf;
+  const v = inp.value.trim();
+  const e = DOC.abilities[id];
+  if (v) {
+    e.byJob = e.byJob || {};
+    e.byJob[job] = v;
+  } else if (e.byJob) {
+    delete e.byJob[job];
+    // Un byJob vide n'a pas de sens : on retire la cle plutot que d'ecrire {}.
+    if (!Object.keys(e.byJob).length) delete e.byJob;
+  }
+  const cell = inp.closest(".jobline");
+  const old = cell.querySelector(".thumb");
+  const neu = document.createElement(v ? "img" : "span");
+  neu.className = "thumb" + (v ? "" : " none");
+  if (v) neu.src = "../" + v;
+  old.replaceWith(neu);
+  setDirty(true);
+});
+
 $("rows").addEventListener("input", (ev) => {
   const inp = ev.target.closest("input[data-f]");
   if (!inp) return;
@@ -238,11 +316,21 @@ $("rows").addEventListener("input", (ev) => {
 });
 
 $("rows").addEventListener("click", (ev) => {
-  const b = ev.target.closest('button[data-act="pick"]');
+  const exp = ev.target.closest('button[data-act="expand"]');
+  if (exp) {
+    const id = exp.closest("tr").dataset.id;
+    if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+    draw();
+    return;
+  }
+
+  const b = ev.target.closest('button[data-act="pick"], button[data-act="pickjob"]');
   if (!b) return;
-  pickTarget = b.closest("tr").dataset.id;
-  const e = DOC.abilities[pickTarget];
-  $("pickFor").textContent = `${pickTarget} — ${e.en || ""}`;
+  const job = b.dataset.act === "pickjob" ? b.dataset.job : null;
+  const id = b.closest("tr").dataset.id;
+  pickTarget = { id, job };
+  const e = DOC.abilities[id];
+  $("pickFor").textContent = `${id} — ${e.en || ""}` + (job ? ` · ${job}` : "");
   $("pickQ").value = (e.en || "").split(" ")[0] || "";
   $("picker").showModal();
   searchIcons();
@@ -272,14 +360,30 @@ async function searchIcons() {
 $("pickResults").addEventListener("click", (ev) => {
   const f = ev.target.closest("figure[data-p]");
   if (!f || !pickTarget) return;
-  DOC.abilities[pickTarget].icon = f.dataset.p;
+  const e = DOC.abilities[pickTarget.id];
+  if (pickTarget.job) {
+    e.byJob = e.byJob || {};
+    e.byJob[pickTarget.job] = f.dataset.p;
+  } else {
+    e.icon = f.dataset.p;
+  }
   $("picker").close();
   setDirty(true);
   draw();
 });
 
 $("pickClear").addEventListener("click", () => {
-  if (pickTarget) delete DOC.abilities[pickTarget].icon;
+  if (pickTarget) {
+    const e = DOC.abilities[pickTarget.id];
+    if (pickTarget.job) {
+      if (e.byJob) {
+        delete e.byJob[pickTarget.job];
+        if (!Object.keys(e.byJob).length) delete e.byJob;
+      }
+    } else {
+      delete e.icon;
+    }
+  }
   $("picker").close();
   setDirty(true);
   draw();

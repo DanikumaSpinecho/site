@@ -30,6 +30,12 @@
     --caster: #8f6bd4;
   }
   * { box-sizing: border-box; }
+
+  /* L'attribut hidden vient de la feuille du navigateur : n'importe quelle regle
+     « display » ecrite ici le bat, et l'element reste affiche alors que le code
+     le croit cache. C'est arrive au menu « local », a #shareBox et a #active.
+     Cette ligne referme le piege une fois pour toutes. */
+  [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -145,8 +151,21 @@
   }
   .now-zone.armed { border-color: var(--soon); }
   .now-zone.fire { border-color: var(--now); background: #2a2410; }
-  .now-head { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; }
+  .now-head { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
   .now-head img.icon { width: 84px; height: 84px; border-radius: 10px; flex: 0 0 auto; }
+
+  /* Enchainement : plusieurs declenchements a moins de cinq secondes les uns des
+     autres sont montres ensemble, relies par une fleche. On voit le combo venir
+     au lieu de le decouvrir capacite par capacite. */
+  .chain { display: flex; align-items: center; gap: 10px; }
+  .chain-arrow { color: var(--past); font-size: 1.8rem; line-height: 1; flex: 0 0 auto; }
+  .chain-item { display: flex; align-items: center; gap: 12px; }
+  .chain-item.later img.icon { width: 52px; height: 52px; opacity: .78; }
+  .chain-item.later .chain-name { font-size: 1.15rem; font-weight: 650; color: var(--muted); }
+  .chain-delta {
+    font-size: .78rem; font-weight: 700; color: var(--soon);
+    font-variant-numeric: tabular-nums; margin-left: -6px;
+  }
   .now-ability { font-size: clamp(2rem, 7vw, 4.2rem); font-weight: 800; line-height: 1.1; }
   .now-count { font-size: clamp(2.4rem, 9vw, 5.5rem); font-weight: 800; font-variant-numeric: tabular-nums; color: var(--now); }
   .now-mech {
@@ -199,6 +218,20 @@
   .team-state { font-size: .85rem; color: var(--muted); }
   .team-state b { color: var(--soon); }
   .team-state.follow b { color: var(--accent); }
+  /* Qui a ouvert le plan : un poste par pastille, eteinte tant que personne ne
+     s'est annonce dessus. La composition attendue vient du plan lui-meme, pas
+     d'une liste en dur — le plan de reference compte onze postes, pas huit. */
+  #roster { margin-top: 12px; }
+  .seats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .seat {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px 3px 5px;
+    font-size: .82rem; color: var(--past); opacity: .55;
+  }
+  .seat.on { color: var(--text); opacity: 1; border-color: var(--soon); background: #10241a; }
+  .seat .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--past); }
+  .seat.on .dot { background: var(--soon); }
+
   .share { display: flex; gap: 8px; margin-top: 10px; }
   .share input { font-family: ui-monospace, Consolas, monospace; font-size: .85rem; min-width: 0; }
   .share button { flex: 0 0 auto; }
@@ -225,20 +258,34 @@
     .bar .row.tight > button { flex: 1 1 0; padding: 10px 4px; font-size: .92rem; }
 
     .now-zone { padding: 16px 12px; min-height: 150px; border-radius: 12px; }
-    .now-head { gap: 12px; }
-    .now-head img.icon { width: 56px; height: 56px; }
+    .now-head { gap: 8px; }
+    .now-head img.icon { width: 44px; height: 44px; }
+    /* Trois icones, deux fleches et autant de noms ne tiennent pas en 375 px :
+       au-dela du premier, on ne garde que l'icone et l'ecart. */
+    .chain { gap: 6px; }
+    .chain-item { gap: 6px; }
+    .chain-item.later img.icon { width: 34px; height: 34px; }
+    .chain-item.later .chain-name { display: none; }
+    .chain-arrow { font-size: 1.2rem; }
     .now-ability { font-size: clamp(1.5rem, 8vw, 2.6rem); }
     .now-count { font-size: clamp(2rem, 13vw, 3.4rem); }
     .now-for { font-size: .95rem; }
     /* Trop peu de place pour un coin : les effets actifs passent sous le bloc. */
     .active-tray { position: static; justify-content: center; margin-top: 14px; }
-    .eff img { width: 30px; height: 30px; }
+    .eff img { width: 26px; height: 26px; border-radius: 6px; }
+    .eff-left { font-size: .56rem; }
+
+    /* Sur telephone les icones sont reduites : la place gagnee va au nom de la
+       capacite, seule information qu'on lit vraiment en combat. */
+    .job img, .job .chip { width: 18px; height: 18px; }
+    .job .chip { font-size: .5rem; border-radius: 4px; }
 
     /* La ligne de file passe sur deux niveaux : capacite en haut, contexte en
        dessous, pour ne jamais deborder en largeur. */
     .qbox { max-height: 38vh; }
     ul.queue li.cue { padding: 8px 10px; gap: 9px; flex-wrap: wrap; }
-    ul.queue img.icon, ul.queue .slot { width: 26px; height: 26px; }
+    ul.queue img.icon, ul.queue .slot { width: 22px; height: 22px; }
+    ul.queue img.icon { border-radius: 5px; }
     .t { min-width: 3.8em; font-size: .88rem; }
     .ab { min-width: 0; flex: 1 1 auto; font-size: .95rem; }
     /* Deuxieme rang : le cast du boss et, en mode « toute l'equipe », le poste
@@ -247,7 +294,8 @@
     .in { font-size: .88rem; order: 1; }
     .sub2 {
       display: flex; width: 100%; order: 2; gap: 8px;
-      align-items: center; flex-wrap: wrap; padding-left: 35px;
+      align-items: center; flex-wrap: wrap;
+      padding-left: 31px;   /* icone 22 + gouttiere 9 : le rang 2 s'aligne sous le nom */
     }
     .ctx { font-size: .82rem; }
     li.mech-head { padding: 11px 10px 4px; }
@@ -266,7 +314,7 @@
   <h1>Mitigoke</h1>
   <div class="sub">
     Load a plan shared from <a href="https://xivmit.app" target="_blank" rel="noopener noreferrer">xivmit.app</a>,
-    pick your slot, and follow your cues live.<span class="ver">v0.0.3</span>
+    pick your slot, and follow your cues live.<span class="ver">v0.0.4</span>
   </div>
 
   <!-- ============ Chargement du plan ============ -->
@@ -351,6 +399,7 @@
         <button id="copyLink">Copy</button>
       </div>
       <div class="hint" id="teamHint"></div>
+      <div id="roster" hidden></div>
       <div class="row tight" style="margin-top:10px">
         <button id="leaveTeam">Leave room</button>
       </div>
@@ -388,10 +437,7 @@
       <div class="idle" id="idle">Waiting for start</div>
       <div id="nowBox" hidden>
         <div class="now-count" id="nowCount">—</div>
-        <div class="now-head">
-          <img class="icon" id="nowIcon" alt="" hidden />
-          <div class="now-ability" id="nowAb"></div>
-        </div>
+        <div class="now-head" id="nowHead"></div>
         <div class="now-mech" id="nowMech"></div>
         <div class="now-for" id="nowFor"></div>
         <div class="now-note" id="nowNote"></div>
@@ -429,6 +475,7 @@ const S = {
   qNodes: [],        // <li> de la file, indexes comme S.cues
   qIdx: -1,          // index du cue courant lors du dernier passage
   activeSig: "",     // signature des effets actifs, pour ne pas repeindre pour rien
+  chainSig: "",      // idem pour l'enchainement affiche
 
   // --- mode equipe ---
   room: null,        // etat du salon renvoye par sync.php, ou null en solo
@@ -855,7 +902,16 @@ function buildCues() {
     })
     .sort((x, y) => x.t - y.t);
 
+  // Sur un enchainement serre, les preavis a 2 s et 1 s d'un declenchement
+  // tomberaient pendant que le precedent sonne encore : on obtiendrait un bip
+  // quasi continu. On les supprime donc quand le precedent est a moins de 2 s ;
+  // le bip d'action, lui, reste toujours.
+  for (let i = 1; i < S.cues.length; i++) {
+    S.cues[i].noWarn = S.cues[i].t - S.cues[i - 1].t < 2;
+  }
+
   S.fired.clear();
+  S.chainSig = "";
   paintQueue();
 }
 
@@ -888,19 +944,69 @@ const beepNow  = () => beep(880, 0.18, 0.18);
  */
 function ring(cue, dt) {
   let sounded = false;
-  for (const lvl of WARN_AT) {
-    const k = cue.id + ":" + lvl;
-    if (dt <= lvl && dt > -0.25 && !S.fired.has(k)) {
-      S.fired.add(k);
-      // Si plusieurs seuils tombent d'un coup (onglet bride, saut d'horloge),
-      // un seul son suffit.
-      if (!sounded) { beepWarn(); sounded = true; }
+  // noWarn : le declenchement precedent est a moins de deux secondes, ses bips
+  // couvriraient deja ce preavis (voir buildCues).
+  if (!cue.noWarn) {
+    for (const lvl of WARN_AT) {
+      const k = cue.id + ":" + lvl;
+      if (dt <= lvl && dt > -0.25 && !S.fired.has(k)) {
+        S.fired.add(k);
+        // Si plusieurs seuils tombent d'un coup (onglet bride, saut d'horloge),
+        // un seul son suffit.
+        if (!sounded) { beepWarn(); sounded = true; }
+      }
     }
   }
   if (dt <= 0 && !S.fired.has(cue.id)) {
     S.fired.add(cue.id);
     beepNow();
   }
+}
+
+// ------------------------------------------------------------- enchainements
+// Deux declenchements separes de moins de CHAIN_GAP secondes forment un
+// enchainement. La regle s'applique de proche en proche : la suite peut donc en
+// compter trois ou quatre, et ce n'est pas « le suivant » mais bien « la suite ».
+const CHAIN_GAP = 5;    // secondes
+const CHAIN_MAX = 4;    // au-dela, l'ecran ne suit plus
+
+function chainFrom(i) {
+  const out = [S.cues[i]];
+  for (let k = i + 1; k < S.cues.length && out.length < CHAIN_MAX; k++) {
+    if (S.cues[k].t - out[out.length - 1].t > CHAIN_GAP) break;
+    out.push(S.cues[k]);
+  }
+  return out;
+}
+
+/**
+ * Peint la suite. Le compte a rebours reste celui du PREMIER — c'est sur lui
+ * qu'on se cale — et les suivants n'affichent que leur ecart.
+ * Reconstruction seulement quand la suite change : sinon on reecrirait le bloc
+ * dix fois par seconde pour rien.
+ */
+function paintChain(chain, showWho) {
+  const sig = chain.map((c) => c.id).join(",") + "|" + (showWho ? "w" : "");
+  if (sig === S.chainSig) return;
+  S.chainSig = sig;
+
+  const first = chain[0];
+  const html = chain.map((c, i) => {
+    const icon = c.icon
+      ? `<img class="icon" src="${esc(c.icon)}" alt="" />`
+      : "";
+    const who = showWho && c.who ? ` — ${esc(c.who)}` : "";
+    const delta = i === 0
+      ? ""
+      : `<span class="chain-delta">+${(c.t - first.t).toFixed(1).replace(/\.0$/, "")} s</span>`;
+    const name = i === 0
+      ? `<div class="now-ability">${esc(c.name)}${who}</div>`
+      : `<div class="chain-name">${esc(c.name)}${who}</div>`;
+    return (i ? '<span class="chain-arrow">→</span>' : "") +
+           `<span class="chain-item${i ? " later" : ""}">${icon}${name}${delta}</span>`;
+  }).join("");
+
+  $("nowHead").innerHTML = `<span class="chain">${html}</span>`;
 }
 
 // ---------------------------------------------------------- effets encore actifs
@@ -1037,7 +1143,8 @@ function render() {
   $("phase").textContent = t >= 0 ? phaseAt(t) : "before pull";
 
   // Le cue courant : le premier non encore passe (tolerance de 2 s apres).
-  const next = S.cues.find((c) => c.t > t - 2);
+  const nextIdx = S.cues.findIndex((c) => c.t > t - 2);
+  const next = nextIdx === -1 ? undefined : S.cues[nextIdx];
   const zone = $("nowZone");
 
   if (!next) {
@@ -1045,20 +1152,13 @@ function render() {
     $("idle").hidden = false;
     $("idle").textContent = S.playing ? "Nothing left to trigger" : "Waiting for start";
     zone.className = "now-zone";
+    S.chainSig = "";
   } else {
     const dt = next.t - t;
     $("idle").hidden = true;
     $("nowBox").hidden = false;
     $("nowCount").textContent = dt > 0 ? dt.toFixed(1) + " s" : "NOW";
-    $("nowAb").textContent = next.name + (next.who && $("player").value === "*" ? " — " + next.who : "");
-
-    const ic = $("nowIcon");
-    if (next.icon) {
-      if (ic.getAttribute("src") !== next.icon) ic.src = next.icon;
-      ic.hidden = false;
-    } else {
-      ic.hidden = true;
-    }
+    paintChain(chainFrom(nextIdx), $("player").value === "*");
 
     // La mecanique coiffe le cast : c'est le nom que le raid annonce.
     $("nowMech").textContent = next.mech ? next.mech.name : "";
@@ -1180,6 +1280,9 @@ async function calibrate() {
 
 function applyRoom(r) {
   const before = S.room;
+  // Les reponses d'ecriture ne portent pas la presence : sans cela le tableau
+  // du chef clignoterait a chaque Depart ou changement de decalage.
+  if (r.present === undefined && before && before.present) r.present = before.present;
   S.room = r;
   // Un changement de decalage commun doit se repercuter sur la file.
   if (S.cues.length && (!before || before.offset !== r.offset)) buildCues();
@@ -1190,9 +1293,51 @@ function applyRoom(r) {
 async function pollRoom() {
   if (!S.room) return;
   try {
-    const r = await (await fetch("sync.php?room=" + encodeURIComponent(S.room.room))).json();
+    // Seul le chef demande la liste des presents : pour les autres, le sondage
+    // reste une lecture pure.
+    const url = "sync.php?room=" + encodeURIComponent(S.room.room) + (isLeader() ? "&who=1" : "");
+    const r = await (await fetch(url)).json();
     if (r && !r.error) applyRoom(r);
   } catch (_) { /* coupure passagere : l'horloge locale continue toute seule */ }
+}
+
+/**
+ * Signal de vie : « je suis la, sur ce poste ». Espace de HELLO_EVERY, et separe
+ * du sondage de lecture — c'est la seule ecriture que fera un suiveur.
+ * Rien de personnel n'est transmis : l'identifiant du poste et son job suffisent.
+ */
+const HELLO_EVERY = 15000;
+
+async function sendHello() {
+  if (!S.room || !S.plan) return;
+  const slot = $("player").value;
+  if (!slot || slot === "*") return;      // « toute l'equipe » n'est pas un poste
+  const p = S.plan.players.find((x) => x.id === slot);
+  try {
+    await fetch("sync.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "hello", room: S.room.room, slot, job: p ? p.job : "" }),
+    });
+  } catch (_) { /* la presence est indicative : une coupure ne doit rien casser */ }
+}
+
+/** Composition attendue : deduite du plan, jamais codee en dur. */
+function paintRoster() {
+  const box = $("roster");
+  if (!S.room || !isLeader() || !S.plan) {
+    box.hidden = true;
+    return;
+  }
+  const here = new Set((S.room.present || []).map((x) => x.slot));
+  const seats = S.plan.players
+    .map((p) => `<span class="seat${here.has(p.id) ? " on" : ""}" title="${esc(p.job)}">` +
+                `<span class="dot"></span>${jobBadge(p.job)} ${esc(p.name || p.job)}</span>`)
+    .join("");
+  box.innerHTML = `<div class="seats">${seats}</div>` +
+    `<div class="hint">${here.size} of ${S.plan.players.length} slots have the plan open` +
+    `${here.size < S.plan.players.length ? " — a slot lights up a few seconds after it is picked." : "."}</div>`;
+  box.hidden = false;
 }
 
 async function leaderSet(patch) {
@@ -1239,6 +1384,7 @@ function paintTeam() {
         : "Share this link: whoever opens it follows your clock. Keep this tab — it holds control.")
     : "The clock is driven by the party leader. Your personal offset stays yours.";
 
+  paintRoster();
   $("barTeam").innerHTML = ` · <b>${esc(S.room.room)}</b>${isLeader() ? "" : " (follower)"}`;
   // Un suiveur n'a pas la main sur le chrono : les boutons sont inertes.
   $("start").disabled = !isLeader();
@@ -1268,6 +1414,7 @@ async function createRoom() {
     S.leaderKey = d.leaderKey;
     localStorage.setItem("mitigoke.key." + d.room, d.leaderKey);
     applyRoom(d);
+    sendHello();
   } catch (e) {
     $("err").textContent = e.message;
     $("err").hidden = false;
@@ -1284,6 +1431,7 @@ async function joinRoom(room, keyFromUrl) {
     S.leaderKey = keyFromUrl || localStorage.getItem("mitigoke.key." + room) || null;
     if (keyFromUrl) localStorage.setItem("mitigoke.key." + room, keyFromUrl);
     applyRoom(r);
+    sendHello();
     return r;
   } catch (_) {
     return null;
@@ -1350,6 +1498,10 @@ $("copyLink").addEventListener("click", async () => {
   }
 });
 
+// Changer de poste se reannonce tout de suite : le chef ne doit pas attendre
+// quinze secondes pour voir la pastille bouger.
+$("player").addEventListener("change", sendHello);
+
 // Le decalage perso se regle en direct pendant un run.
 $("offset").addEventListener("change", () => { if (S.cues.length) buildCues(); });
 $("lang").addEventListener("change", () => {
@@ -1415,6 +1567,7 @@ $("link").value = fromUrl || remembered || "";
 
 setInterval(tick, 100);
 setInterval(pollRoom, 2000);
+setInterval(sendHello, HELLO_EVERY);
 </script>
 </body>
 </html>

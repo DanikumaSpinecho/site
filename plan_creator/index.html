@@ -1,0 +1,1712 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate" />
+<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+<meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
+<meta name="referrer" content="no-referrer" />
+<meta name="robots" content="noai, noimageai" />
+<meta name="theme-color" content="#0a0e13" />
+<title>Mitigoke — plan creator</title>
+<style>
+  :root {
+    --bg: #0a0e13;
+    --panel: #141b24;
+    --panel2: #0e141c;
+    --line: #253243;
+    --text: #e6edf5;
+    --muted: #8fa3ba;
+    --accent: #4da3ff;
+    --now: #ffcc48;
+    --soon: #47d18b;
+    --past: #47566b;
+    --tb: #ff7a59;
+    --mech: #8f7bd4;
+    --tank: #4a7fd4;
+    --healer: #59b36b;
+    --melee: #c4574c;
+    --ranged: #c9a227;
+    --caster: #8f6bd4;
+    --grid: #1a2431;
+    --grid2: #223044;
+    --bad: #ff8b7a;
+
+    --px: 6;              /* pixels par seconde, pilote par le zoom */
+    --lane: 122px;        /* largeur d'une colonne de job */
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    overflow: hidden;
+  }
+  a { color: var(--accent); }
+  button, input, select, textarea {
+    font: inherit; color: var(--text); background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+  }
+  button { cursor: pointer; background: #1b2836; border-color: #33445a; }
+  button:hover { background: #24374a; }
+  button.primary { background: var(--accent); color: #04121f; border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.mini { padding: 3px 8px; font-size: .8rem; border-radius: 6px; }
+  input[type="number"] { width: 82px; }
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-thumb { background: #2b3a4d; border-radius: 8px; border: 3px solid var(--bg); }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+
+  /* ------------------------------------------------------------------ cadre */
+  #app { display: flex; flex-direction: column; height: 100%; }
+
+  #top {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  #top .brand { font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
+  #top .brand span { color: var(--muted); font-weight: 400; font-size: .85rem; }
+  #top .sp { flex: 1 1 auto; }
+  #title { min-width: 190px; }
+  .grp { display: flex; align-items: center; gap: 6px; }
+  .grp > label { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+
+  #main { flex: 1 1 auto; display: flex; min-height: 0; }
+  #board { flex: 1 1 auto; overflow: auto; position: relative; }
+  #side {
+    width: 336px; flex: 0 0 336px; border-left: 1px solid var(--line);
+    background: var(--panel); display: flex; flex-direction: column; min-height: 0;
+  }
+
+  /* ---------------------------------------------------------------- colonnes */
+  /* Flex et non grid : `position: sticky` sur un element de GRILLE est contraint
+     a sa propre zone de grille, donc il ne colle jamais. En flex, le bloc
+     conteneur est la ligne entiere et l'epinglage fonctionne. */
+  #head, #lanes { display: flex; align-items: stretch; }
+  #head {
+    position: sticky; top: 0; z-index: 6; background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  #head > div { padding: 6px 8px; border-left: 1px solid var(--line); min-width: 0; }
+  #head > div:first-child { border-left: 0; }
+
+  /* Les quatre colonnes de repere restent visibles quand on defile en largeur :
+     poser une mitigation sans voir le cast qu'elle couvre n'aurait aucun sens. */
+  .col1 { flex: 0 0 54px;  position: sticky; left: 0;     z-index: 4; }
+  .col2 { flex: 0 0 26px;  position: sticky; left: 54px;  z-index: 4; }
+  .col3 { flex: 0 0 116px; position: sticky; left: 80px;  z-index: 4; }
+  .col4 { flex: 0 0 200px; position: sticky; left: 196px; z-index: 4;
+          box-shadow: 6px 0 8px -6px rgba(0, 0, 0, .75); }
+  .colj { flex: 1 0 118px; min-width: 118px; }
+  #head .col1, #head .col2, #head .col3, #head .col4 { z-index: 7; background: var(--panel); }
+
+  .colh { cursor: pointer; user-select: none; }
+  .colh .slot { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .colh .who { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .colh img { width: 22px; height: 22px; display: block; }
+  .colh select { width: 100%; padding: 3px 6px; font-size: .82rem; margin-top: 3px; }
+  .colh .n { font-size: .7rem; color: var(--past); }
+  .colh.on { background: #1c2939; box-shadow: inset 0 -2px 0 var(--accent); }
+
+  #lanes { position: relative; }
+  .lane {
+    position: relative; height: var(--h); border-left: 1px solid var(--line);
+    background:
+      repeating-linear-gradient(to bottom,
+        transparent 0, transparent calc(var(--ten) - 1px),
+        var(--grid) calc(var(--ten) - 1px), var(--grid) var(--ten));
+  }
+  /* Deux classes, donc plus specifique que `.lane { position: relative }` — sans
+     ca la voie l'emporterait sur l'epinglage, a specificite egale et plus bas. */
+  .lane.col1, .lane.col2, .lane.col3, .lane.col4 {
+    position: sticky; background-color: var(--bg);
+  }
+  .lane.on { background-color: #111b27; }
+  .lane.job { cursor: copy; }
+
+  /* --- règle des temps --- */
+  #ruler { border-left: 0; background: var(--bg); }
+  #ruler .t {
+    position: absolute; left: 0; right: 4px; text-align: right;
+    font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums;
+    transform: translateY(-50%); pointer-events: none;
+  }
+  #ruler .t.maj { color: var(--text); }
+
+  /* --- phases --- */
+  .ph {
+    position: absolute; left: 2px; right: 2px; border-radius: 4px;
+    background: #1a2333; border: 1px solid #26344a;
+  }
+  .ph b {
+    position: sticky; top: calc(var(--headh) + 4px); display: block; font-size: .64rem; font-weight: 600;
+    writing-mode: vertical-rl; text-orientation: mixed; color: var(--muted);
+    padding: 5px 1px; white-space: nowrap;
+  }
+
+  /* --- mécaniques --- */
+  .mec {
+    position: absolute; left: 3px; right: 3px; border-radius: 7px;
+    border: 1px solid #3d3467; background: rgba(143, 123, 212, .10); cursor: pointer;
+  }
+  .mec:hover { border-color: var(--mech); }
+  .mec.sel { border-color: var(--mech); box-shadow: 0 0 0 1px var(--mech); }
+  .mec b {
+    position: sticky; top: calc(var(--headh) + 4px); display: block; font-size: .72rem; font-weight: 600;
+    color: #bcaef0; padding: 3px 7px; line-height: 1.2;
+  }
+
+  /* --- casts du boss --- */
+  .cast {
+    position: absolute; left: 4px; right: 6px; border-radius: 6px; cursor: pointer;
+    background: #16202c; border: 1px solid #2c3d52; padding: 2px 7px;
+    display: flex; align-items: center; gap: 6px; min-height: 20px;
+  }
+  .cast:hover { border-color: var(--accent); }
+  .cast.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .cast .nm { font-size: .78rem; line-height: 1.15; overflow: hidden;
+              text-overflow: ellipsis; white-space: nowrap; }
+  .cast .tm { font-size: .66rem; color: var(--past); font-variant-numeric: tabular-nums; margin-left: auto; }
+  .cast.tb { border-color: #5a3327; background: #201720; }
+  .cast.tb .nm { color: var(--tb); }
+  .cast.enrage { border-color: #6b2a2a; background: #22151a; }
+  .cast.enrage .nm { color: #ff6b6b; }
+  /* La barre d'incantation part du debut du cast et descend jusqu'a l'application. */
+  .bar {
+    position: absolute; left: 0; width: 3px; border-radius: 2px;
+    background: linear-gradient(to bottom, rgba(77,163,255,.15), var(--accent));
+    pointer-events: none;
+  }
+  .bar.tb { background: linear-gradient(to bottom, rgba(255,122,89,.15), var(--tb)); }
+  .hit { position: absolute; left: 0; width: 9px; height: 2px; background: var(--tb); opacity: .8; }
+
+  /* --- blocs de mitigation --- */
+  .blk {
+    position: absolute; border-radius: 6px; overflow: hidden; cursor: grab;
+    background: #1a2635; border: 1px solid #38506b;
+    display: flex; align-items: flex-start; gap: 4px; padding: 2px 3px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+  .blk:hover { border-color: var(--accent); z-index: 3; }
+  .blk.sel { border-color: var(--now); box-shadow: 0 0 0 1px var(--now); z-index: 3; }
+  .blk.clash { border-color: var(--bad); }
+  .blk img { width: 20px; height: 20px; display: block; flex: 0 0 auto; border-radius: 3px; }
+  .blk .chip {
+    width: 20px; height: 20px; border-radius: 3px; flex: 0 0 auto; font-size: .5rem;
+    font-weight: 700; display: flex; align-items: center; justify-content: center; color: #04121f;
+    background: var(--past);
+  }
+  .blk .nm { font-size: .68rem; line-height: 1.1; overflow: hidden; }
+  .blk.short .nm { display: none; }
+  .blk .nt { color: var(--now); }
+  /* Ce qui reste a courir avant de pouvoir relancer la capacite. */
+  .cdg {
+    position: absolute; border-radius: 0 0 5px 5px; pointer-events: none; opacity: .55;
+    background: repeating-linear-gradient(135deg, rgba(143,163,186,.16) 0 4px, transparent 4px 8px);
+  }
+
+  .chip.tank { background: var(--tank); } .chip.healer { background: var(--healer); }
+  .chip.melee { background: var(--melee); } .chip.ranged { background: var(--ranged); }
+  .chip.caster { background: var(--caster); }
+
+  /* --- aides de glisser-déposer --- */
+  #ghost {
+    position: fixed; z-index: 40; pointer-events: none; border-radius: 6px;
+    background: #1a2635; border: 1px solid var(--accent); padding: 3px 7px;
+    display: flex; align-items: center; gap: 6px; font-size: .76rem;
+    box-shadow: 0 6px 18px rgba(0,0,0,.55);
+  }
+  #ghost img { width: 20px; height: 20px; display: block; }
+  #ghost .tm { color: var(--now); font-variant-numeric: tabular-nums; }
+  #snap {
+    position: absolute; left: 0; right: 0; height: 0; z-index: 8; pointer-events: none;
+    border-top: 1px dashed var(--now);
+  }
+
+  /* ------------------------------------------------------------ panneau droit */
+  #tabs { display: flex; border-bottom: 1px solid var(--line); }
+  #tabs button {
+    flex: 1 1 0; border: 0; border-radius: 0; background: transparent; color: var(--muted);
+    padding: 9px 4px; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em;
+  }
+  #tabs button:hover { background: #1b2836; color: var(--text); }
+  #tabs button.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+  #tabs .badge { display: inline-block; min-width: 17px; padding: 0 4px; margin-left: 4px;
+                 border-radius: 9px; background: var(--bad); color: #1a0d0a; font-size: .68rem;
+                 font-weight: 700; }
+  #tabs .badge.zero { background: #2b3a4d; color: var(--muted); }
+
+  .pane { display: none; overflow: auto; padding: 12px; flex: 1 1 auto; min-height: 0; }
+  .pane.on { display: block; }
+  .pane h3 { font-size: .74rem; text-transform: uppercase; letter-spacing: .07em;
+             color: var(--muted); margin: 16px 0 7px; font-weight: 600; }
+  .pane h3:first-child { margin-top: 0; }
+  .muted { color: var(--muted); font-size: .84rem; }
+  .empty { color: var(--past); font-size: .85rem; padding: 20px 4px; text-align: center; }
+
+  #palList { display: flex; flex-direction: column; gap: 4px; }
+  .pal {
+    display: flex; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 7px;
+    border: 1px solid transparent; cursor: grab; user-select: none;
+  }
+  .pal:hover { background: #1b2836; border-color: var(--line); }
+  .pal img { width: 26px; height: 26px; display: block; flex: 0 0 auto; border-radius: 4px; }
+  .pal .chip { width: 26px; height: 26px; border-radius: 4px; flex: 0 0 auto; font-size: .58rem;
+               font-weight: 700; display: flex; align-items: center; justify-content: center;
+               color: #04121f; background: var(--past); }
+  .pal .txt { min-width: 0; flex: 1 1 auto; }
+  .pal .nm { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pal .sub { font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  table.ed { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  table.ed th { text-align: left; font-weight: 600; color: var(--muted); font-size: .68rem;
+                text-transform: uppercase; letter-spacing: .05em; padding: 3px 3px; }
+  table.ed td { padding: 2px 3px; vertical-align: middle; }
+  table.ed input, table.ed select { width: 100%; padding: 4px 6px; font-size: .8rem; }
+  table.ed input.t { width: 100%; font-variant-numeric: tabular-nums; }
+  table.ed tr.sel td { background: #1c2939; }
+  table.ed .x { color: var(--past); background: none; border: 0; padding: 2px 5px; cursor: pointer; }
+  table.ed .x:hover { color: var(--bad); background: none; }
+
+  .issue { display: block; width: 100%; text-align: left; border: 1px solid var(--line);
+           background: var(--panel2); border-radius: 8px; padding: 7px 9px; margin-bottom: 6px;
+           font-size: .8rem; line-height: 1.35; cursor: pointer; }
+  .issue:hover { border-color: var(--accent); background: #1b2836; }
+  .issue b { display: block; font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; }
+  .issue.err b { color: var(--bad); }
+  .issue.warn b { color: var(--now); }
+  .issue .w { color: var(--muted); }
+
+  #insp { border-top: 1px solid var(--line); background: var(--panel2); padding: 11px 12px; }
+  #insp .hd { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  #insp .hd img { width: 28px; height: 28px; border-radius: 4px; }
+  #insp .hd .nm { font-weight: 600; font-size: .92rem; }
+  #insp .hd .sub { font-size: .72rem; color: var(--muted); }
+  #insp .r { display: flex; gap: 8px; align-items: center; margin-bottom: 7px; }
+  #insp .r label { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em;
+                   color: var(--muted); flex: 0 0 62px; }
+  #insp .r input { flex: 1 1 auto; width: auto; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+    padding: 9px 16px; z-index: 60; box-shadow: 0 8px 26px rgba(0,0,0,.5); font-size: .86rem;
+  }
+  #toast.err { border-color: var(--bad); color: var(--bad); }
+
+  dialog {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px; max-width: 520px; width: calc(100% - 40px);
+  }
+  dialog::backdrop { background: rgba(4, 8, 13, .7); }
+  dialog h2 { margin: 0 0 4px; font-size: 1.05rem; }
+  dialog .muted { margin-bottom: 14px; }
+  dialog .row { display: flex; gap: 8px; margin-bottom: 10px; }
+  dialog .row input { flex: 1 1 auto; }
+  dialog .acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  dialog .opt { border: 1px solid var(--line); border-radius: 9px; padding: 11px 13px; margin-bottom: 9px; }
+  dialog .opt h4 { margin: 0 0 3px; font-size: .88rem; }
+  dialog .opt p { margin: 0 0 9px; font-size: .8rem; color: var(--muted); }
+  kbd { background: #0e141c; border: 1px solid var(--line); border-bottom-width: 2px;
+        border-radius: 4px; padding: 0 5px; font-size: .78rem; font-family: inherit; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="top">
+    <div class="brand">Mitigoke <span>plan creator</span></div>
+    <input id="title" placeholder="Plan title" />
+    <div class="grp">
+      <button id="btnImport">Import…</button>
+      <button id="btnExport" class="primary">Export JSON</button>
+    </div>
+    <div class="sp"></div>
+    <div class="grp">
+      <label for="lang">Names</label>
+      <select id="lang" style="width:auto">
+        <option value="en">EN</option><option value="fr">FR</option>
+        <option value="de">DE</option><option value="ja">JA</option>
+      </select>
+    </div>
+    <div class="grp">
+      <label for="zoom">Zoom</label>
+      <input id="zoom" type="range" min="2" max="22" step="1" value="6" style="width:110px" />
+    </div>
+    <div class="grp">
+      <label for="snapSel">Snap</label>
+      <select id="snapSel" style="width:auto">
+        <option value="0">off</option>
+        <option value="0.5">0.5 s</option>
+        <option value="1" selected>1 s</option>
+      </select>
+    </div>
+    <div class="grp">
+      <button id="btnUndo" class="mini" title="Undo (Ctrl+Z)">↶</button>
+      <button id="btnRedo" class="mini" title="Redo (Ctrl+Y)">↷</button>
+    </div>
+    <button id="btnHelp" class="mini" title="Keyboard shortcuts">?</button>
+  </div>
+
+  <div id="main">
+    <div id="board">
+      <div id="head"></div>
+      <div id="lanes"></div>
+      <div id="snap" hidden></div>
+    </div>
+
+    <div id="side">
+      <div id="tabs">
+        <button data-pane="pal" class="on">Abilities</button>
+        <button data-pane="fight">Fight</button>
+        <button data-pane="check">Checks <span id="issueCount" class="badge zero">0</span></button>
+      </div>
+
+      <div class="pane on" id="pane-pal">
+        <div id="palHint" class="empty">Click a job column to pick its abilities.</div>
+        <div id="palTop" hidden>
+          <input id="palSearch" placeholder="Filter abilities…" style="width:100%;margin-bottom:10px" />
+          <div id="palList"></div>
+        </div>
+      </div>
+
+      <div class="pane" id="pane-fight">
+        <h3>Fight</h3>
+        <div class="r" style="display:flex;gap:8px;margin-bottom:8px">
+          <input id="fName" placeholder="Fight name" style="flex:1 1 auto" />
+          <input id="fShort" placeholder="Short" style="width:78px" />
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+          <label class="muted" for="fDur">Duration (s)</label>
+          <input id="fDur" type="number" min="30" step="1" />
+        </div>
+
+        <h3>Phases <button id="addPhase" class="mini">+</button></h3>
+        <table class="ed" id="tPhases"></table>
+
+        <h3>Mechanics <button id="addMech" class="mini">+</button></h3>
+        <table class="ed" id="tMechs"></table>
+
+        <h3>Boss casts <button id="addCast" class="mini">+</button></h3>
+        <p class="muted" style="margin:0 0 6px">
+          <b>Cast</b> is when the castbar starts, <b>Apply</b> when the damage lands.
+        </p>
+        <table class="ed" id="tCasts"></table>
+      </div>
+
+      <div class="pane" id="pane-check">
+        <div id="issues"></div>
+      </div>
+
+      <div id="insp" hidden></div>
+    </div>
+  </div>
+</div>
+
+<dialog id="dlgImport">
+  <h2>Start from…</h2>
+  <p class="muted">Everything stays in your browser until you export.</p>
+
+  <div class="opt">
+    <h4>An xivmit.app plan</h4>
+    <p>Pulls the plan, its fight timeline and every assignment through our proxy.</p>
+    <div class="row">
+      <input id="impCode" placeholder="UMAD-G0FF1B or a full link" />
+      <button id="impCodeGo">Load</button>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h4>A fight timeline only</h4>
+    <p>Keeps your columns and assignments empty — just the boss timeline.</p>
+    <div class="row">
+      <input id="impFight" placeholder="Fight id, e.g. umad" />
+      <button id="impFightGo">Load</button>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h4>A plan file</h4>
+    <p>Any <code>mitigoke-plan/1</code> file, including one exported from here.</p>
+    <div class="row">
+      <button id="impFileGo">Choose a file…</button>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h4>Nothing at all</h4>
+    <p>A blank 10-minute fight and a standard 8-slot party.</p>
+    <div class="row"><button id="impBlank">Start blank</button></div>
+  </div>
+
+  <div class="acts"><button id="impClose">Close</button></div>
+</dialog>
+
+<dialog id="dlgHelp">
+  <h2>Shortcuts</h2>
+  <p class="muted">The planner is a desktop tool — it wants a mouse and some width.</p>
+  <table class="ed">
+    <tr><td><kbd>Click</kbd> a column header</td><td class="muted">select it and list its abilities</td></tr>
+    <tr><td><kbd>Drag</kbd> from the list</td><td class="muted">drop it on the column at that time</td></tr>
+    <tr><td><kbd>Drag</kbd> a block</td><td class="muted">move it in time, or to another column</td></tr>
+    <tr><td><kbd>Alt</kbd> while dragging</td><td class="muted">ignore snapping</td></tr>
+    <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td class="muted">nudge by one snap step</td></tr>
+    <tr><td><kbd>Shift</kbd> + <kbd>↑</kbd> <kbd>↓</kbd></td><td class="muted">nudge by five steps</td></tr>
+    <tr><td><kbd>Del</kbd></td><td class="muted">remove the selected block</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td class="muted">duplicate it 30 s later</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td class="muted">undo / redo</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td class="muted">deselect</td></tr>
+  </table>
+  <div class="acts"><button id="helpClose" class="primary">Got it</button></div>
+</dialog>
+
+<input id="fileIn" type="file" accept=".json,application/json" hidden />
+
+<script>
+"use strict";
+
+// ======================================================================
+//  Etat
+// ======================================================================
+// `doc` est deja au format « mitigoke-plan/1 » : on edite la sortie
+// directement, il n'y a aucune conversion a l'export. C'est ce qui garantit
+// qu'un plan cree ici se recharge tel quel dans le prompteur.
+const S = {
+  doc: null,
+  map: { jobs: {}, abilities: {} },  // mapping.json : noms, icones, durees
+  cat: {},                           // api.php?abilities=1 : recasts, charges
+  lang: "en",
+  sel: null,        // playerId de la colonne selectionnee
+  pick: null,       // id de l'assignation selectionnee
+  pickCast: null,   // id du cast selectionne
+  pickMech: null,
+  px: 6,
+  snap: 1,
+  issues: [],
+  undo: [],
+  redo: [],
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+const fmt = (s) => {
+  const neg = s < 0, a = Math.abs(s);
+  const m = Math.floor(a / 60), r = Math.floor(a % 60);
+  return (neg ? "-" : "") + m + ":" + String(r).padStart(2, "0");
+};
+const round1 = (n) => Math.round(n * 10) / 10;
+
+let toastTimer = null;
+function toast(msg, bad) {
+  let el = $("toast");
+  if (!el) { el = document.createElement("div"); el.id = "toast"; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.className = bad ? "err" : "";
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, bad ? 5200 : 2600);
+}
+
+// ======================================================================
+//  Composition : 8 postes, groupes par type comme dans un raid
+// ======================================================================
+// Chaque emplacement n'accepte que les jobs qui ont un sens pour lui. Le
+// dernier choix de chaque liste est le role generique (TANK, HEALER…) : c'est
+// ce qu'emploient les plans de reference sur xivmit, et le prompteur sait
+// deja l'afficher en pastille de role.
+const SLOTS = [
+  { key: "MT", label: "Main tank",  def: "PLD", jobs: ["PLD", "WAR", "DRK", "GNB"], role: "TANK" },
+  { key: "OT", label: "Off tank",   def: "WAR", jobs: ["PLD", "WAR", "DRK", "GNB"], role: "TANK" },
+  { key: "H1", label: "Pure heal",  def: "WHM", jobs: ["WHM", "AST"],               role: "HEALER" },
+  { key: "H2", label: "Shield heal",def: "SCH", jobs: ["SCH", "SGE"],               role: "HEALER" },
+  { key: "M1", label: "Melee 1",    def: "MNK", jobs: ["MNK", "DRG", "NIN", "SAM", "RPR", "VPR"], role: "MELEE" },
+  { key: "M2", label: "Melee 2",    def: "DRG", jobs: ["MNK", "DRG", "NIN", "SAM", "RPR", "VPR"], role: "MELEE" },
+  { key: "R1", label: "Ranged",     def: "BRD", jobs: ["BRD", "MCH", "DNC"],        role: "RANGED" },
+  { key: "C1", label: "Caster",     def: "BLM", jobs: ["BLM", "SMN", "RDM", "PCT"], role: "CASTER" },
+];
+const PSEUDO = { TANK: "tank", HEALER: "healer", MELEE: "melee", RANGED: "ranged", CASTER: "caster", EXTRAS: "" };
+
+function defaultParty() {
+  return SLOTS.map((s, i) => ({ id: "p" + (i + 1), job: s.def, name: s.label, _slot: s.key }));
+}
+
+/**
+ * L'emplacement d'un poste, s'il en a un. Surtout pas de repli sur l'ordre des
+ * colonnes : un plan a onze postes — le plan de reference en compte autant — et
+ * le quatrieme n'est alors pas le soigneur bouclier, c'est l'astromancien.
+ */
+function slotOf(player) {
+  return player._slot ? SLOTS.find((s) => s.key === player._slot) || null : null;
+}
+
+/** Libelle de colonne : l'emplacement, sinon le nom du poste, sinon son job. */
+function labelOf(player) {
+  const s = slotOf(player);
+  return (s && s.label) || player.name || player.job || player.id;
+}
+
+/** Jobs proposables a une colonne : ceux de son emplacement, ou ceux du role. */
+function jobOptions(player) {
+  const s = slotOf(player);
+  if (s) return s.jobs.concat([s.role]);
+  const role = roleOfJob(player.job);
+  const same = Object.keys(S.map.jobs).filter((j) => roleOfJob(j) === role);
+  const out = same.concat(role && role !== player.job ? [role] : []);
+  if (out.indexOf(player.job) === -1) out.unshift(player.job);
+  return out;
+}
+
+// ======================================================================
+//  Capacites
+// ======================================================================
+function roleOfJob(job) {
+  const j = S.map.jobs[job];
+  if (j && j.role) return j.role.toUpperCase();
+  return PSEUDO[job] !== undefined ? job : "";
+}
+
+/** Nom, icone, duree et recast d'une capacite pour un job donne. */
+function view(abilityId, job) {
+  const m = S.map.abilities[abilityId];
+  const c = S.cat[abilityId];
+  if (!m && !c) return { name: abilityId, icon: null, dur: 0, cd: 0, charges: 1, mit: 0, job: "" };
+  const icon = (job && m && m.byJob && m.byJob[job]) || (m && m.icon) || null;
+  return {
+    name: (m && (m[S.lang] || m.en)) || (c && c.name) || abilityId,
+    icon,
+    // mapping.json porte deja la duree effective au niveau 100 : elle prime.
+    dur: (m && m.dur) || (c && c.duration) || 0,
+    cd: (c && c.cooldown) || 0,
+    charges: (c && c.charges) || 1,
+    mit: (m && m.mit) || (c && c.mitPercent) || 0,
+    job: (m && m.job) || (c && c.job) || "",
+  };
+}
+
+/** Capacites proposables a un poste : celles du job, plus celles de son role. */
+function abilitiesFor(job) {
+  const role = roleOfJob(job);
+  const pfx = String(job).toLowerCase() + "_";
+  const out = [];
+  for (const id of Object.keys(S.map.abilities)) {
+    const a = S.map.abilities[id];
+    const ok = a.job === job || (role && a.job === role) || id.indexOf(pfx) === 0
+            || (a.byJob && a.byJob[job]);
+    if (ok) out.push(id);
+  }
+  // Les mitigations d'abord — c'est ce qu'on vient chercher — puis par nom.
+  return out.sort((x, y) => {
+    const vx = view(x, job), vy = view(y, job);
+    const mx = vx.mit ? 0 : 1, my = vy.mit ? 0 : 1;
+    return mx - my || vx.name.localeCompare(vy.name);
+  });
+}
+
+function jobIcon(job, cls) {
+  const j = S.map.jobs[job];
+  if (j && j.icon) return `<img src="../${esc(j.icon)}" alt="" title="${esc(job)}" loading="lazy" />`;
+  return `<span class="chip ${esc(PSEUDO[job] || "")}" title="${esc(job)}">${esc(String(job).slice(0, 3))}</span>`;
+}
+
+function abilityIcon(v, job, cls) {
+  if (v.icon) return `<img src="../${esc(v.icon)}" alt="" loading="lazy" />`;
+  return `<span class="chip ${esc(PSEUDO[roleOfJob(job)] || "")}">${esc(String(job).slice(0, 3))}</span>`;
+}
+
+// ======================================================================
+//  Historique
+// ======================================================================
+function snapshot() {
+  S.undo.push(JSON.stringify(S.doc));
+  if (S.undo.length > 80) S.undo.shift();
+  S.redo.length = 0;
+  refreshUndo();
+}
+function refreshUndo() {
+  $("btnUndo").disabled = !S.undo.length;
+  $("btnRedo").disabled = !S.redo.length;
+}
+function undo() {
+  if (!S.undo.length) return;
+  S.redo.push(JSON.stringify(S.doc));
+  S.doc = JSON.parse(S.undo.pop());
+  S.pick = null;
+  refreshUndo(); paintAll(); save();
+}
+function redo() {
+  if (!S.redo.length) return;
+  S.undo.push(JSON.stringify(S.doc));
+  S.doc = JSON.parse(S.redo.pop());
+  S.pick = null;
+  refreshUndo(); paintAll(); save();
+}
+
+// ======================================================================
+//  Sauvegarde locale — perdre une heure de travail sur un F5 serait cruel
+// ======================================================================
+const LS_KEY = "mitigoke.creator.doc";
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(S.doc)); } catch (e) { /* quota */ }
+  }, 400);
+}
+
+// ======================================================================
+//  Document
+// ======================================================================
+function blankDoc() {
+  return {
+    format: "mitigoke-plan/1",
+    title: "New plan",
+    fight: {
+      id: "local", name: "New fight", shortName: "", duration: 600,
+      phases: [], mechanics: [], bossActions: [],
+    },
+    players: defaultParty(),
+    assignments: [],
+  };
+}
+
+let seq = 0;
+const newId = (p) => p + "-" + (Date.now().toString(36).slice(-4)) + (++seq).toString(36);
+
+function normalise(d) {
+  d.fight = d.fight || {};
+  const f = d.fight;
+  f.phases = Array.isArray(f.phases) ? f.phases : [];
+  f.mechanics = Array.isArray(f.mechanics) ? f.mechanics : [];
+  f.bossActions = Array.isArray(f.bossActions) ? f.bossActions : [];
+  f.duration = Number(f.duration) || Math.max(
+    600,
+    Math.ceil(Math.max(0, ...f.bossActions.map((b) => Number(b.time) || 0),
+                          ...d.assignments.map((a) => Number(a.startTime) || 0)) / 60) * 60);
+  f.mechanics.forEach((m, i) => { if (!m.id) m.id = "m" + i; });
+  f.bossActions.forEach((b, i) => { if (!b.id) b.id = "ba" + i; });
+  d.assignments.forEach((a, i) => { if (!a.id) a.id = newId(a.playerId || "a"); });
+  return d;
+}
+
+const playerOf = (pid) => S.doc.players.find((p) => p.id === pid) || null;
+const jobOf = (pid) => { const p = playerOf(pid); return p ? p.job : ""; };
+const assignOf = (id) => S.doc.assignments.find((a) => a.id === id) || null;
+
+// ======================================================================
+//  Geometrie
+// ======================================================================
+const yOf = (t) => t * S.px;
+const tOf = (y) => y / S.px;
+
+function tickStep() {
+  if (S.px >= 14) return 5;
+  if (S.px >= 8) return 10;
+  if (S.px >= 4) return 15;
+  return 30;
+}
+
+/** Aimante sur la grille, et sur les instants qui comptent vraiment. */
+function snapTime(t, free) {
+  const dur = S.doc.fight.duration;
+  t = Math.max(0, Math.min(dur, t));
+  if (free) return round1(t);
+  // Les casts du boss sont les vraies references : on colle a leur application
+  // et au debut de leur incantation avant de tomber sur la grille reguliere.
+  const tol = 5 / S.px;
+  let best = null, bestD = tol;
+  for (const b of S.doc.fight.bossActions) {
+    for (const c of [b.time, b.time - (b.castTime || 0)]) {
+      const d = Math.abs(c - t);
+      if (d < bestD) { bestD = d; best = c; }
+    }
+  }
+  if (best !== null) return round1(best);
+  if (!S.snap) return round1(t);
+  return round1(Math.round(t / S.snap) * S.snap);
+}
+
+// ======================================================================
+//  Rendu — en-tetes
+// ======================================================================
+function paintHead() {
+  // Les largeurs de colonne viennent des classes .col1..4 / .colj : en-tete et
+  // voies partagent les memes, donc les deux lignes restent alignees meme quand
+  // la composition deborde et force un defilement horizontal.
+  document.documentElement.style.setProperty("--h", yOf(S.doc.fight.duration) + "px");
+  document.documentElement.style.setProperty("--ten", yOf(tickStep()) + "px");
+
+  const h = [];
+  h.push('<div class="col1"></div>');
+  h.push('<div class="col2"><div class="slot">Ph</div></div>');
+  h.push('<div class="col3"><div class="slot">Mechanic</div></div>');
+  h.push('<div class="col4"><div class="slot">Boss cast</div></div>');
+
+  S.doc.players.forEach((p) => {
+    const cnt = S.doc.assignments.filter((a) => a.playerId === p.id).length;
+    const opts = jobOptions(p).map((j) =>
+      `<option value="${esc(j)}"${j === p.job ? " selected" : ""}>${esc(j)}</option>`);
+    h.push(
+      `<div class="colh colj${S.sel === p.id ? " on" : ""}" data-pid="${esc(p.id)}">` +
+        `<div class="slot">${esc(labelOf(p))}</div>` +
+        `<div class="who">${jobIcon(p.job)}<span class="n">${cnt}</span></div>` +
+        `<select data-job="${esc(p.id)}">${opts.join("")}</select>` +
+      `</div>`);
+  });
+  $("head").innerHTML = h.join("");
+  // Les etiquettes de phase et de mecanique collent juste sous l'en-tete : sa
+  // hauteur depend du contenu, on la mesure plutot que de la deviner.
+  document.documentElement.style.setProperty("--headh", $("head").offsetHeight + "px");
+}
+
+// ======================================================================
+//  Rendu — voies
+// ======================================================================
+function paintLanes() {
+  const f = S.doc.fight;
+  const dur = f.duration;
+  const out = [];
+
+  // -- regle
+  const step = tickStep();
+  const ticks = [];
+  for (let t = 0; t <= dur; t += step) {
+    const maj = t % (step * (step >= 15 ? 2 : 6)) === 0;
+    ticks.push(`<div class="t${maj ? " maj" : ""}" style="top:${yOf(t)}px">${maj ? fmt(t) : ""}</div>`);
+  }
+  out.push(`<div class="lane col1" id="ruler">${ticks.join("")}</div>`);
+
+  // -- phases
+  const ph = f.phases.map((p) => {
+    const top = yOf(p.startTime), h = Math.max(6, yOf(p.endTime - p.startTime));
+    return `<div class="ph" style="top:${top}px;height:${h}px"><b>${esc(p.name || "")}</b></div>`;
+  });
+  out.push(`<div class="lane col2">${ph.join("")}</div>`);
+
+  // -- mecaniques
+  const mc = f.mechanics.map((m) => {
+    const top = yOf(m.startTime), h = Math.max(16, yOf(m.endTime - m.startTime));
+    return `<div class="mec${S.pickMech === m.id ? " sel" : ""}" data-mech="${esc(m.id)}" ` +
+           `style="top:${top}px;height:${h}px"><b>${esc(m.name || "")}</b></div>`;
+  });
+  out.push(`<div class="lane col3" id="lmech">${mc.join("")}</div>`);
+
+  // -- casts du boss
+  const cs = [];
+  for (const b of f.bossActions) {
+    const t = Number(b.time) || 0;
+    const ct = Number(b.castTime) || 0;
+    const kind = b.type === "tb" ? "tb" : b.type === "enrage" ? "enrage" : "";
+    if (ct > 0) {
+      cs.push(`<div class="bar ${kind}" style="top:${yOf(t - ct)}px;height:${yOf(ct)}px"></div>`);
+    }
+    for (const hit of (b.hits || [])) {
+      cs.push(`<div class="hit" style="top:${yOf(Number(hit) || 0)}px"></div>`);
+    }
+    cs.push(
+      `<div class="cast ${kind}${S.pickCast === b.id ? " sel" : ""}" data-cast="${esc(b.id)}" ` +
+      `style="top:${yOf(t) - 10}px">` +
+        `<span class="nm">${esc(b.name || "—")}</span>` +
+        `<span class="tm">${fmt(t)}</span>` +
+      `</div>`);
+  }
+  out.push(`<div class="lane col4" id="lcast">${cs.join("")}</div>`);
+
+  // -- voies de job
+  for (const p of S.doc.players) {
+    out.push(`<div class="lane job colj${S.sel === p.id ? " on" : ""}" data-pid="${esc(p.id)}">` +
+             laneBlocks(p) + `</div>`);
+  }
+  $("lanes").innerHTML = out.join("");
+}
+
+/**
+ * Empile les blocs qui se recouvrent sur des pistes cote a cote : un soigneur
+ * enchaine cinq boutons en trois secondes, sans ca on ne verrait que le dernier.
+ */
+function laneBlocks(p) {
+  const list = S.doc.assignments
+    .filter((a) => a.playerId === p.id)
+    .sort((a, b) => a.startTime - b.startTime);
+  if (!list.length) return "";
+
+  const MIN_SPAN = 3;  // secondes : sinon les capacites instantanees se marchent dessus
+  const ends = [];
+  const html = [];
+  const clash = new Set(S.issues.filter((i) => i.kind === "cd").flatMap((i) => i.refs || []));
+
+  for (const a of list) {
+    const v = view(a.abilityId, p.job);
+    const span = Math.max(v.dur || 0, MIN_SPAN);
+    let track = ends.findIndex((e) => e <= a.startTime + 0.01);
+    if (track === -1) { track = ends.length; ends.push(0); }
+    ends[track] = a.startTime + span;
+
+    const cols = Math.max(1, ends.length);
+    const w = 100 / cols;
+    const top = yOf(a.startTime);
+    const h = Math.max(22, yOf(v.dur || 0));
+    const style = `top:${top}px;height:${h}px;left:calc(${track * w}% + 2px);width:calc(${w}% - 4px)`;
+
+    // Fantome de recharge : ce qui reste avant de pouvoir relancer.
+    let cdg = "";
+    if (v.cd && v.cd > (v.dur || 0)) {
+      const gh = yOf(v.cd - (v.dur || 0));
+      cdg = `<div class="cdg" style="top:${top + h}px;height:${gh}px;` +
+            `left:calc(${track * w}% + 2px);width:calc(${w}% - 4px)"></div>`;
+    }
+    html.push(cdg);
+    html.push(
+      `<div class="blk${h < 30 ? " short" : ""}${S.pick === a.id ? " sel" : ""}` +
+      `${clash.has(a.id) ? " clash" : ""}" data-a="${esc(a.id)}" style="${style}" ` +
+      `title="${esc(v.name)} — ${fmt(a.startTime)}${a.note ? " — " + esc(a.note) : ""}">` +
+        abilityIcon(v, p.job) +
+        `<span class="nm">${esc(v.name)}${a.note ? '<br /><span class="nt">' + esc(a.note) + "</span>" : ""}</span>` +
+      `</div>`);
+  }
+  return html.join("");
+}
+
+// ======================================================================
+//  Rendu — panneau des capacites
+// ======================================================================
+function paintPalette() {
+  const pid = S.sel;
+  const hint = $("palHint"), top = $("palTop");
+  if (!pid) { hint.hidden = false; top.hidden = true; return; }
+  hint.hidden = true; top.hidden = false;
+
+  const job = jobOf(pid);
+  const q = $("palSearch").value.trim().toLowerCase();
+  const html = [];
+  for (const id of abilitiesFor(job)) {
+    const v = view(id, job);
+    if (q && v.name.toLowerCase().indexOf(q) === -1 && id.indexOf(q) === -1) continue;
+    const bits = [];
+    if (v.mit) bits.push(v.mit + "%");
+    if (v.dur) bits.push(v.dur + "s");
+    if (v.cd) bits.push("↻ " + v.cd + "s" + (v.charges > 1 ? " ×" + v.charges : ""));
+    html.push(
+      `<div class="pal" data-ab="${esc(id)}">` +
+        abilityIcon(v, job) +
+        `<div class="txt"><div class="nm">${esc(v.name)}</div>` +
+        `<div class="sub">${esc(bits.join(" · ") || id)}</div></div>` +
+      `</div>`);
+  }
+  $("palList").innerHTML = html.join("") ||
+    '<div class="empty">Nothing matches.</div>';
+}
+
+// ======================================================================
+//  Rendu — editeur de combat
+// ======================================================================
+function numCell(val, onto, key, step) {
+  return `<input class="t" type="number" step="${step || 0.1}" value="${val}" data-e="${onto}" data-k="${key}" />`;
+}
+
+function paintFight() {
+  const f = S.doc.fight;
+  $("fName").value = f.name || "";
+  $("fShort").value = f.shortName || "";
+  $("fDur").value = f.duration;
+
+  $("tPhases").innerHTML =
+    "<tr><th>Name</th><th>From</th><th>To</th><th></th></tr>" +
+    f.phases.map((p, i) =>
+      `<tr><td><input value="${esc(p.name || "")}" data-e="ph:${i}" data-k="name" /></td>` +
+      `<td>${numCell(p.startTime, "ph:" + i, "startTime", 1)}</td>` +
+      `<td>${numCell(p.endTime, "ph:" + i, "endTime", 1)}</td>` +
+      `<td><button class="x" data-del="ph:${i}">✕</button></td></tr>`).join("") ||
+    '<tr><td colspan="4" class="muted">No phases.</td></tr>';
+
+  $("tMechs").innerHTML =
+    "<tr><th>Name</th><th>From</th><th>To</th><th></th></tr>" +
+    f.mechanics.map((m, i) =>
+      `<tr${S.pickMech === m.id ? ' class="sel"' : ""}><td><input value="${esc(m.name || "")}" data-e="me:${i}" data-k="name" /></td>` +
+      `<td>${numCell(m.startTime, "me:" + i, "startTime", 1)}</td>` +
+      `<td>${numCell(m.endTime, "me:" + i, "endTime", 1)}</td>` +
+      `<td><button class="x" data-del="me:${i}">✕</button></td></tr>`).join("") ||
+    '<tr><td colspan="4" class="muted">No mechanics.</td></tr>';
+
+  $("tCasts").innerHTML =
+    "<tr><th>Name</th><th>Cast</th><th>Apply</th><th>Type</th><th></th></tr>" +
+    f.bossActions.map((b, i) => {
+      const ct = Number(b.castTime) || 0;
+      return `<tr${S.pickCast === b.id ? ' class="sel"' : ""}>` +
+        `<td><input value="${esc(b.name || "")}" data-e="ba:${i}" data-k="name" /></td>` +
+        `<td>${numCell(round1((Number(b.time) || 0) - ct), "ba:" + i, "castStart", 0.1)}</td>` +
+        `<td>${numCell(round1(Number(b.time) || 0), "ba:" + i, "time", 0.1)}</td>` +
+        `<td><select data-e="ba:${i}" data-k="type">` +
+          ["raid", "tb", "enrage"].map((t) =>
+            `<option value="${t}"${(b.type || "raid") === t ? " selected" : ""}>${t}</option>`).join("") +
+        `</select></td>` +
+        `<td><button class="x" data-del="ba:${i}">✕</button></td></tr>`;
+    }).join("") ||
+    '<tr><td colspan="5" class="muted">No boss casts yet.</td></tr>';
+}
+
+// ======================================================================
+//  Verifications
+// ======================================================================
+/**
+ * Les controles qui coutent une soiree quand on les decouvre en raid :
+ * mecaniques qui se chevauchent, mitigation qui ne couvre aucun cast, et
+ * surtout capacite relancee avant la fin de son recast.
+ */
+function check() {
+  const f = S.doc.fight;
+  const out = [];
+
+  // -- chevauchement de mecaniques : le prompteur prend la premiere qui
+  //    contient l'instant, un recouvrement donne des groupes incoherents.
+  const ms = f.mechanics.slice().sort((a, b) => a.startTime - b.startTime);
+  for (let i = 1; i < ms.length; i++) {
+    if (ms[i].startTime < ms[i - 1].endTime) {
+      out.push({ kind: "mech", level: "err", at: ms[i].startTime,
+        text: `“${ms[i - 1].name}” and “${ms[i].name}” overlap. The queue groups by the first ` +
+              `window that contains a cast, so they must be disjoint.` });
+    }
+  }
+  for (const m of f.mechanics) {
+    if (m.endTime <= m.startTime) {
+      out.push({ kind: "mech", level: "err", at: m.startTime,
+        text: `“${m.name}” ends before it starts.` });
+    }
+  }
+
+  // -- casts
+  for (const b of f.bossActions) {
+    const ct = Number(b.castTime) || 0;
+    if (ct < 0) out.push({ kind: "cast", level: "err", at: b.time, ref: b.id,
+      text: `“${b.name}” has its castbar starting after it lands.` });
+    if (b.time - ct < 0) out.push({ kind: "cast", level: "warn", at: b.time, ref: b.id,
+      text: `“${b.name}” starts casting before the pull.` });
+    if (b.time > f.duration) out.push({ kind: "cast", level: "warn", at: b.time, ref: b.id,
+      text: `“${b.name}” lands after the end of the fight.` });
+  }
+
+  // -- assignations sans cast a suivre : souvent le signe qu'il manque un cast
+  const acts = f.bossActions.slice().sort((a, b) => a.time - b.time);
+  for (const a of S.doc.assignments) {
+    if (a.startTime < 0 || a.startTime > f.duration) {
+      out.push({ kind: "asg", level: "warn", at: a.startTime, refs: [a.id],
+        text: `${label(a)} sits outside the fight.` });
+    }
+    if (acts.length && !acts.some((b) => b.time > a.startTime - 1)) {
+      out.push({ kind: "asg", level: "warn", at: a.startTime, refs: [a.id],
+        text: `${label(a)} has no boss cast after it — it will show with no context.` });
+    }
+  }
+
+  // -- recasts : on compte les charges avant de crier
+  const by = {};
+  for (const a of S.doc.assignments) {
+    (by[a.playerId + "|" + a.abilityId] = by[a.playerId + "|" + a.abilityId] || []).push(a);
+  }
+  for (const k of Object.keys(by)) {
+    const list = by[k].sort((x, y) => x.startTime - y.startTime);
+    const v = view(list[0].abilityId, jobOf(list[0].playerId));
+    if (!v.cd) continue;
+    const ch = Math.max(1, v.charges);
+    for (let i = ch; i < list.length; i++) {
+      const gap = list[i].startTime - list[i - ch].startTime;
+      if (gap < v.cd - 0.5) {
+        out.push({ kind: "cd", level: gap < v.cd * 0.5 ? "err" : "warn",
+          at: list[i].startTime, refs: [list[i - ch].id, list[i].id],
+          text: `${label(list[i])} again ${round1(gap)} s after ${fmt(list[i - ch].startTime)}, ` +
+                `but its recast is ${v.cd} s${ch > 1 ? ` (${ch} charges)` : ""}.` });
+      }
+    }
+  }
+
+  S.issues = out.sort((a, b) => (a.level === b.level ? a.at - b.at : a.level === "err" ? -1 : 1));
+}
+
+function label(a) {
+  const p = playerOf(a.playerId);
+  const v = view(a.abilityId, p ? p.job : "");
+  return `${p ? labelOf(p) : a.playerId} · ${v.name} at ${fmt(a.startTime)}`;
+}
+
+function paintIssues() {
+  const errs = S.issues.filter((i) => i.level === "err").length;
+  const b = $("issueCount");
+  b.textContent = S.issues.length;
+  b.className = "badge" + (S.issues.length ? "" : " zero");
+
+  $("issues").innerHTML = S.issues.length
+    ? S.issues.map((i, n) =>
+        `<button class="issue ${i.level}" data-issue="${n}">` +
+        `<b>${i.level === "err" ? "Problem" : "Worth a look"} · ${fmt(i.at)}</b>` +
+        `<span class="w">${esc(i.text)}</span></button>`).join("")
+    : '<div class="empty">Nothing to report.</div>';
+}
+
+// ======================================================================
+//  Inspecteur
+// ======================================================================
+function paintInspector() {
+  const el = $("insp");
+  const a = S.pick && assignOf(S.pick);
+  if (!a) { el.hidden = true; el.innerHTML = ""; return; }
+  const p = playerOf(a.playerId);
+  const v = view(a.abilityId, p ? p.job : "");
+  const bits = [];
+  if (v.mit) bits.push(v.mit + "% mit");
+  if (v.dur) bits.push(v.dur + " s");
+  if (v.cd) bits.push("recast " + v.cd + " s");
+
+  el.hidden = false;
+  el.innerHTML =
+    `<div class="hd">${abilityIcon(v, p ? p.job : "")}` +
+      `<div><div class="nm">${esc(v.name)}</div>` +
+      `<div class="sub">${esc(p ? labelOf(p) : "")} · ${esc(bits.join(" · "))}</div></div></div>` +
+    `<div class="r"><label for="iSt">Start</label>` +
+      `<input id="iSt" type="number" step="0.1" value="${round1(a.startTime)}" /></div>` +
+    `<div class="r"><label for="iNo">Note</label>` +
+      `<input id="iNo" value="${esc(a.note || "")}" placeholder="one short line" /></div>` +
+    `<div class="r" style="justify-content:flex-end;margin:0">` +
+      `<button class="mini" id="iDup">Duplicate</button>` +
+      `<button class="mini" id="iDel">Delete</button></div>`;
+
+  $("iSt").onchange = (e) => {
+    snapshot();
+    a.startTime = round1(Math.max(0, Number(e.target.value) || 0));
+    paintAll(); save();
+  };
+  $("iNo").onchange = (e) => {
+    snapshot();
+    const t = e.target.value.trim();
+    if (t) a.note = t; else delete a.note;
+    paintAll(); save();
+  };
+  $("iDel").onclick = () => removePick();
+  $("iDup").onclick = () => {
+    snapshot();
+    const c = Object.assign({}, a, { id: newId(a.playerId), startTime: round1(a.startTime + 30) });
+    S.doc.assignments.push(c);
+    S.pick = c.id;
+    paintAll(); save();
+  };
+}
+
+function removePick() {
+  if (!S.pick) return;
+  snapshot();
+  S.doc.assignments = S.doc.assignments.filter((x) => x.id !== S.pick);
+  S.pick = null;
+  paintAll(); save();
+}
+
+// ======================================================================
+//  Rendu global
+// ======================================================================
+function paintAll() {
+  check();
+  paintHead();
+  paintLanes();
+  paintPalette();
+  paintFight();
+  paintIssues();
+  paintInspector();
+  $("title").value = S.doc.title || "";
+}
+
+// ======================================================================
+//  Glisser-deposer
+// ======================================================================
+// Un clone flottant suit le curseur et seul le lacher touche au modele : avec
+// plusieurs centaines d'assignations, recalculer la mise en page a chaque
+// deplacement de souris serait injouable.
+let drag = null;
+
+function laneUnder(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el ? el.closest(".lane.job") : null;
+}
+
+function timeAt(clientY) {
+  const r = $("lanes").getBoundingClientRect();
+  return tOf(clientY - r.top);
+}
+
+function startDrag(e, kind, abilityId, from) {
+  const job = from ? jobOf(from.playerId) : jobOf(S.sel);
+  const v = view(abilityId, job);
+  const g = document.createElement("div");
+  g.id = "ghost";
+  g.innerHTML = abilityIcon(v, job) + `<span>${esc(v.name)}</span><span class="tm">0:00</span>`;
+  document.body.appendChild(g);
+
+  drag = { kind, abilityId, from, ghost: g, ok: false, t: 0, pid: null,
+           grab: from ? (e.clientY - from.top) : 10 };
+  moveDrag(e);
+  window.addEventListener("pointermove", moveDrag);
+  window.addEventListener("pointerup", endDrag);
+  window.addEventListener("keydown", cancelOnEsc, true);
+}
+
+function moveDrag(e) {
+  if (!drag) return;
+  drag.ghost.style.left = (e.clientX + 14) + "px";
+  drag.ghost.style.top = (e.clientY + 12) + "px";
+
+  const lane = laneUnder(e.clientX, e.clientY);
+  const raw = timeAt(e.clientY - drag.grab);
+  const t = snapTime(raw, e.altKey);
+  drag.t = t;
+  drag.pid = lane ? lane.dataset.pid : null;
+  drag.ok = !!lane;
+
+  drag.ghost.querySelector(".tm").textContent = fmt(t) + (t % 1 ? "." + Math.round((t % 1) * 10) : "");
+  drag.ghost.style.borderColor = drag.ok ? "var(--accent)" : "var(--bad)";
+
+  // #snap vit dans #board, jamais repeint : #lanes est reconstruit a chaque
+  // rendu et emporterait la ligne avec lui.
+  const s = $("snap");
+  s.hidden = !drag.ok;
+  s.style.top = ($("lanes").offsetTop + yOf(t)) + "px";
+}
+
+function endDrag(e) {
+  window.removeEventListener("pointermove", moveDrag);
+  window.removeEventListener("pointerup", endDrag);
+  window.removeEventListener("keydown", cancelOnEsc, true);
+  $("snap").hidden = true;
+  if (!drag) return;
+  const d = drag;
+  drag = null;
+  d.ghost.remove();
+  if (!d.ok || !d.pid) return;
+
+  snapshot();
+  if (d.kind === "new") {
+    const a = { id: newId(d.pid), playerId: d.pid, abilityId: d.abilityId, startTime: d.t };
+    S.doc.assignments.push(a);
+    S.pick = a.id;
+  } else {
+    const a = assignOf(d.from.id);
+    if (!a) return;
+    a.startTime = d.t;
+    a.playerId = d.pid;
+    S.pick = a.id;
+  }
+  paintAll(); save();
+}
+
+function cancelOnEsc(e) {
+  if (e.key !== "Escape" || !drag) return;
+  e.preventDefault();
+  window.removeEventListener("pointermove", moveDrag);
+  window.removeEventListener("pointerup", endDrag);
+  window.removeEventListener("keydown", cancelOnEsc, true);
+  drag.ghost.remove();
+  drag = null;
+  $("snap").hidden = true;
+}
+
+// ======================================================================
+//  Import
+// ======================================================================
+async function api(qs) {
+  const r = await fetch("../api.php?" + qs);
+  const body = await r.json().catch(() => null);
+  if (!r.ok || !body || body.error) {
+    throw new Error((body && body.error) || "Upstream returned " + r.status + ".");
+  }
+  return body;
+}
+
+function extractCode(raw) {
+  const s = String(raw || "").trim();
+  const m = s.match(/[?&]plan=([A-Za-z0-9-]+)/) || s.match(/^([A-Za-z0-9]{1,12}-[A-Za-z0-9]{1,16})$/);
+  return m ? m[1].toUpperCase() : "";
+}
+
+/**
+ * Rapproche les postes d'un plan importe de nos huit emplacements, et regroupe
+ * les colonnes par type. Les postes en trop — le plan de reference en a onze —
+ * gardent leur job sans emplacement : ils ont leur propre colonne.
+ *
+ * On ne LEUR INVENTE PAS de nom : le libelle de colonne vient de l'emplacement,
+ * `name` reste ce qu'il etait, sinon il repartirait modifie a l'export.
+ */
+const ROLE_RANK = { tank: 0, healer: 1, melee: 2, ranged: 3, caster: 4 };
+
+function adoptPlayers(players) {
+  const used = new Set();
+  const out = players.map((p) => {
+    const job = String(p.job || "").toUpperCase();
+    const slot = SLOTS.find((s) => !used.has(s.key) && (s.jobs.indexOf(job) !== -1 || s.role === job));
+    if (slot) used.add(slot.key);
+    const o = { id: p.id, job: job || "EXTRAS", _slot: slot ? slot.key : null };
+    if (p.name) o.name = p.name;
+    return o;
+  });
+  return out.sort((a, b) => {
+    const ra = ROLE_RANK[roleOfJob(a.job)], rb = ROLE_RANK[roleOfJob(b.job)];
+    return (ra === undefined ? 9 : ra) - (rb === undefined ? 9 : rb);
+  });
+}
+
+async function importCode(raw) {
+  const code = extractCode(raw);
+  if (!code) { toast("Link or code not recognised.", true); return; }
+  try {
+    toast("Loading " + code + "…");
+    const plan = await api("plan=" + encodeURIComponent(code));
+    const fight = await api("fight=" + encodeURIComponent(plan.fightId));
+    snapshot();
+    S.doc = normalise({
+      format: "mitigoke-plan/1",
+      title: plan.title || code,
+      fight: {
+        id: fight.id || "local", name: fight.name || "", shortName: fight.shortName || "",
+        duration: fight.duration || 600,
+        phases: fight.phases || [], mechanics: fight.mechanics || [],
+        bossActions: fight.bossActions || [],
+      },
+      players: adoptPlayers(plan.players || []),
+      assignments: (plan.assignments || []).map((a) => {
+        const o = { id: a.id || newId(a.playerId), playerId: a.playerId,
+                    abilityId: a.abilityId, startTime: Number(a.startTime) || 0 };
+        if (a.note) o.note = a.note;
+        return o;
+      }),
+    });
+    S.sel = null; S.pick = null;
+    $("dlgImport").close();
+    paintAll(); save();
+    toast(`${code} — ${S.doc.players.length} players, ${S.doc.assignments.length} assignments.`);
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function importFight(id) {
+  const fid = String(id || "").trim().toLowerCase();
+  if (!/^[a-z0-9_-]{1,32}$/.test(fid)) { toast("Fight id looks wrong.", true); return; }
+  try {
+    const fight = await api("fight=" + encodeURIComponent(fid));
+    snapshot();
+    S.doc.fight = {
+      id: fight.id || fid, name: fight.name || "", shortName: fight.shortName || "",
+      duration: fight.duration || 600,
+      phases: fight.phases || [], mechanics: fight.mechanics || [],
+      bossActions: fight.bossActions || [],
+    };
+    normalise(S.doc);
+    $("dlgImport").close();
+    paintAll(); save();
+    toast(`${fight.name} — ${S.doc.fight.bossActions.length} casts, ${S.doc.fight.mechanics.length} mechanics.`);
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+/** Meme validation que le prompteur : ce qui passe ici se chargera la-bas. */
+function validatePlanDoc(d) {
+  const bad = (m) => { throw new Error(m); };
+  if (!d || typeof d !== "object" || Array.isArray(d)) bad("the file is not a JSON object.");
+  if (typeof d.format !== "string" || d.format.indexOf("mitigoke-plan/") !== 0) {
+    bad('missing "format", expected "mitigoke-plan/1".');
+  }
+  if (!d.fight || typeof d.fight !== "object") bad('"fight" is missing.');
+  if (!Array.isArray(d.players) || !d.players.length) bad('"players" must be a non-empty array.');
+  if (!Array.isArray(d.assignments) || !d.assignments.length) bad('"assignments" must be a non-empty array.');
+
+  const ids = new Set();
+  d.players.forEach((p, i) => {
+    if (!p || typeof p.id !== "string" || !p.id) bad(`players[${i}] has no "id".`);
+    if (ids.has(p.id)) bad(`two players share the id "${p.id}".`);
+    ids.add(p.id);
+    if (typeof p.job !== "string" || !p.job) bad(`player "${p.id}" has no "job".`);
+  });
+  d.assignments.forEach((a, i) => {
+    if (!a || typeof a !== "object") bad(`assignments[${i}] is not an object.`);
+    if (!ids.has(a.playerId)) bad(`assignments[${i}] points at unknown player "${a.playerId}".`);
+    if (typeof a.abilityId !== "string" || !a.abilityId) bad(`assignments[${i}] has no "abilityId".`);
+    if (typeof a.startTime !== "number" || !isFinite(a.startTime)) {
+      bad(`assignments[${i}] has no numeric "startTime".`);
+    }
+  });
+  for (const k of ["phases", "mechanics", "bossActions"]) {
+    if (d.fight[k] !== undefined && !Array.isArray(d.fight[k])) bad(`fight.${k} must be an array.`);
+  }
+  (d.fight.bossActions || []).forEach((b, i) => {
+    if (typeof b.time !== "number") bad(`fight.bossActions[${i}] has no numeric "time".`);
+  });
+}
+
+function importFile(text, filename) {
+  let d;
+  try { d = JSON.parse(text); } catch (e) { toast("Invalid JSON: " + e.message, true); return; }
+  try { validatePlanDoc(d); } catch (e) { toast("Plan file rejected — " + e.message, true); return; }
+  snapshot();
+  d.players = adoptPlayers(d.players);
+  S.doc = normalise(d);
+  S.doc.title = d.title || filename || "Imported plan";
+  S.sel = null; S.pick = null;
+  $("dlgImport").close();
+  paintAll(); save();
+  toast(`${S.doc.players.length} players, ${S.doc.assignments.length} assignments.`);
+}
+
+// ======================================================================
+//  Export
+// ======================================================================
+function planToDoc() {
+  const keep = (o, ks) => {
+    const r = {};
+    for (const k of ks) if (o[k] !== undefined && o[k] !== null && o[k] !== "") r[k] = o[k];
+    return r;
+  };
+  const f = S.doc.fight;
+  return {
+    format: "mitigoke-plan/1",
+    title: S.doc.title || "Plan",
+    updated: new Date().toISOString().slice(0, 10),
+    _source: "Built with the Mitigoke plan creator on " + new Date().toISOString().slice(0, 10) + ".",
+    fight: {
+      id: f.id || "local",
+      name: f.name || "",
+      shortName: f.shortName || "",
+      duration: f.duration || 0,
+      phases: f.phases.map((p) => keep(p, ["name", "startTime", "endTime"])),
+      mechanics: f.mechanics.map((m) => keep(m, ["id", "name", "startTime", "endTime"])),
+      bossActions: f.bossActions.map((b) => keep(b, ["id", "name", "type", "time", "castTime", "hits"])),
+    },
+    players: S.doc.players.map((p) => keep(p, ["id", "job", "name"])),
+    assignments: S.doc.assignments.slice()
+      .sort((a, b) => a.startTime - b.startTime || a.playerId.localeCompare(b.playerId))
+      .map((a) => keep(a, ["id", "playerId", "abilityId", "startTime", "note"])),
+    // Vide a dessein : noms et icones viennent de mapping.json, qui se corrige
+    // depuis admin/. Les figer ici les rendrait prioritaires, donc perimes.
+    abilities: {},
+  };
+}
+
+/** Une entree par ligne, comme l'export du prompteur : lisible et comparable. */
+function planToText(d) {
+  const list = (name, items, ind) =>
+    items.length
+      ? `${ind}"${name}": [\n` + items.map((x) => ind + "    " + JSON.stringify(x)).join(",\n") + `\n${ind}]`
+      : `${ind}"${name}": []`;
+  return [
+    "{",
+    '  "format": ' + JSON.stringify(d.format) + ",",
+    '  "title": ' + JSON.stringify(d.title) + ",",
+    '  "updated": ' + JSON.stringify(d.updated) + ",",
+    '  "_source": ' + JSON.stringify(d._source) + ",",
+    "",
+    '  "fight": {',
+    '    "id": ' + JSON.stringify(d.fight.id) + ",",
+    '    "name": ' + JSON.stringify(d.fight.name) + ",",
+    '    "shortName": ' + JSON.stringify(d.fight.shortName) + ",",
+    '    "duration": ' + d.fight.duration + ",",
+    "",
+    list("phases", d.fight.phases, "    ") + ",",
+    "",
+    list("mechanics", d.fight.mechanics, "    ") + ",",
+    "",
+    list("bossActions", d.fight.bossActions, "    "),
+    "  },",
+    "",
+    list("players", d.players, "  ") + ",",
+    "",
+    list("assignments", d.assignments, "  ") + ",",
+    "",
+    '  "abilities": {}',
+    "}",
+    "",
+  ].join("\n");
+}
+
+function exportPlan() {
+  const doc = planToDoc();
+  try {
+    validatePlanDoc(doc);
+  } catch (e) {
+    toast("Not exportable yet — " + e.message, true);
+    return;
+  }
+  const errs = S.issues.filter((i) => i.level === "err").length;
+  const name = (doc.title || "plan").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "")
+             + "-" + doc.updated + ".json";
+  const url = URL.createObjectURL(new Blob([planToText(doc)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast(errs ? `Exported ${name} — but ${errs} problem${errs > 1 ? "s" : ""} left in Checks.`
+             : `Exported ${name} — ${doc.assignments.length} assignments.`);
+}
+
+// ======================================================================
+//  Evenements
+// ======================================================================
+function bind() {
+  // -- barre du haut
+  $("title").oninput = (e) => { S.doc.title = e.target.value; save(); };
+  $("lang").onchange = (e) => { S.lang = e.target.value; localStorage.setItem("mitigoke.lang", S.lang); paintAll(); };
+  $("zoom").oninput = (e) => {
+    const board = $("board");
+    const anchor = tOf(board.scrollTop);
+    S.px = Number(e.target.value);
+    paintHead(); paintLanes();
+    board.scrollTop = yOf(anchor);
+  };
+  $("snapSel").onchange = (e) => { S.snap = Number(e.target.value); };
+  $("btnUndo").onclick = undo;
+  $("btnRedo").onclick = redo;
+  $("btnExport").onclick = exportPlan;
+  $("btnImport").onclick = () => $("dlgImport").showModal();
+  $("btnHelp").onclick = () => $("dlgHelp").showModal();
+  $("helpClose").onclick = () => $("dlgHelp").close();
+  $("impClose").onclick = () => $("dlgImport").close();
+  $("impCodeGo").onclick = () => importCode($("impCode").value);
+  $("impCode").onkeydown = (e) => { if (e.key === "Enter") importCode(e.target.value); };
+  $("impFightGo").onclick = () => importFight($("impFight").value);
+  $("impFight").onkeydown = (e) => { if (e.key === "Enter") importFight(e.target.value); };
+  $("impFileGo").onclick = () => $("fileIn").click();
+  $("impBlank").onclick = () => {
+    snapshot(); S.doc = normalise(blankDoc()); S.sel = null; S.pick = null;
+    $("dlgImport").close(); paintAll(); save();
+  };
+  $("fileIn").onchange = (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => importFile(String(r.result), f.name.replace(/\.json$/i, ""));
+    r.readAsText(f);
+    ev.target.value = "";
+  };
+
+  // -- onglets
+  for (const b of $("tabs").querySelectorAll("button")) {
+    b.onclick = () => {
+      for (const x of $("tabs").querySelectorAll("button")) x.classList.toggle("on", x === b);
+      for (const p of document.querySelectorAll(".pane")) {
+        p.classList.toggle("on", p.id === "pane-" + b.dataset.pane);
+      }
+    };
+  }
+
+  // -- en-tetes de colonne
+  $("head").addEventListener("click", (e) => {
+    const h = e.target.closest(".colh");
+    if (!h || e.target.tagName === "SELECT") return;
+    S.sel = S.sel === h.dataset.pid ? null : h.dataset.pid;
+    paintHead(); paintLanes(); paintPalette();
+    showPane("pal");
+  });
+  $("head").addEventListener("change", (e) => {
+    const pid = e.target.dataset.job;
+    if (!pid) return;
+    snapshot();
+    playerOf(pid).job = e.target.value;
+    paintAll(); save();
+  });
+
+  // -- palette : debut d'un glisser
+  $("palSearch").oninput = paintPalette;
+  $("palList").addEventListener("pointerdown", (e) => {
+    const p = e.target.closest(".pal");
+    if (!p || !S.sel) return;
+    e.preventDefault();
+    startDrag(e, "new", p.dataset.ab, null);
+  });
+
+  // -- voies : selection et deplacement
+  $("lanes").addEventListener("pointerdown", (e) => {
+    const blk = e.target.closest(".blk");
+    if (blk) {
+      e.preventDefault();
+      const a = assignOf(blk.dataset.a);
+      if (!a) return;
+      // Le haut du bloc se lit AVANT de repeindre : paintLanes() remplace le
+      // contenu de #lanes, et un element detache mesure zero — la prise de
+      // glissement serait alors fausse de toute la hauteur de la page.
+      const top = blk.getBoundingClientRect().top;
+      S.pick = a.id;
+      S.sel = a.playerId;
+      paintHead(); paintLanes(); paintPalette(); paintInspector();
+      startDrag(e, "move", a.abilityId, { id: a.id, playerId: a.playerId, top });
+      return;
+    }
+    const cast = e.target.closest(".cast");
+    if (cast) { S.pickCast = cast.dataset.cast; S.pickMech = null; paintLanes(); paintFight(); showPane("fight"); return; }
+    const mech = e.target.closest(".mec");
+    if (mech) { S.pickMech = mech.dataset.mech; S.pickCast = null; paintLanes(); paintFight(); showPane("fight"); return; }
+    const lane = e.target.closest(".lane.job");
+    if (lane) { S.pick = null; S.sel = lane.dataset.pid; paintHead(); paintLanes(); paintPalette(); paintInspector(); }
+  });
+
+  // -- editeur de combat
+  $("pane-fight").addEventListener("change", onFightEdit);
+  $("pane-fight").addEventListener("click", (e) => {
+    const del = e.target.closest("[data-del]");
+    if (del) { removeFightRow(del.dataset.del); return; }
+  });
+  $("fName").onchange = (e) => { snapshot(); S.doc.fight.name = e.target.value; save(); };
+  $("fShort").onchange = (e) => { snapshot(); S.doc.fight.shortName = e.target.value; save(); };
+  $("fDur").onchange = (e) => {
+    snapshot();
+    S.doc.fight.duration = Math.max(30, Number(e.target.value) || 600);
+    paintAll(); save();
+  };
+  $("addPhase").onclick = () => {
+    snapshot();
+    const t = Math.round(tOf($("board").scrollTop));
+    S.doc.fight.phases.push({ name: "Phase " + (S.doc.fight.phases.length + 1),
+                              startTime: t, endTime: Math.min(S.doc.fight.duration, t + 120) });
+    paintAll(); save();
+  };
+  $("addMech").onclick = () => {
+    snapshot();
+    const t = Math.round(tOf($("board").scrollTop));
+    S.doc.fight.mechanics.push({ id: newId("m"), name: "Mechanic",
+                                 startTime: t, endTime: Math.min(S.doc.fight.duration, t + 30) });
+    paintAll(); save();
+  };
+  $("addCast").onclick = () => {
+    snapshot();
+    const t = Math.round(tOf($("board").scrollTop) + 10);
+    S.doc.fight.bossActions.push({ id: newId("ba"), name: "New cast", type: "raid",
+                                   time: t, castTime: 5 });
+    paintAll(); save();
+  };
+
+  // -- liste des problemes
+  $("issues").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-issue]");
+    if (!b) return;
+    const i = S.issues[Number(b.dataset.issue)];
+    if (i.refs && i.refs.length) {
+      S.pick = i.refs[i.refs.length - 1];
+      const a = assignOf(S.pick);
+      if (a) S.sel = a.playerId;
+    }
+    if (i.ref) S.pickCast = i.ref;
+    paintAll();
+    scrollToTime(i.at);
+  });
+
+  // -- clavier
+  window.addEventListener("keydown", (e) => {
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); exportPlan(); return; }
+    if (typing) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d" && S.pick) {
+      e.preventDefault(); $("iDup") && $("iDup").click(); return;
+    }
+    if (e.key === "Escape") { S.pick = null; S.pickCast = null; S.pickMech = null; paintAll(); return; }
+    if (!S.pick) return;
+    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); removePick(); return; }
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const a = assignOf(S.pick);
+      if (!a) return;
+      const step = (S.snap || 0.5) * (e.shiftKey ? 5 : 1) * (e.key === "ArrowUp" ? -1 : 1);
+      snapshot();
+      a.startTime = round1(Math.max(0, Math.min(S.doc.fight.duration, a.startTime + step)));
+      paintAll(); save();
+    }
+  });
+}
+
+/**
+ * Amene un instant sous les yeux, juste apres un repaint.
+ *
+ * Lire `scrollHeight` force le recalcul de la mise en page : sans ca, #lanes
+ * vient d'etre remplace, la plage de defilement vaut encore zero et la
+ * consigne est ramenee a 0. Affectation directe plutot que `scrollTo`
+ * anime — l'animation part de la meme plage perimee et n'aboutit pas.
+ */
+function scrollToTime(t) {
+  const board = $("board");
+  void board.scrollHeight;
+  board.scrollTop = Math.max(0, yOf(t) - 160);
+}
+
+function showPane(name) {
+  for (const x of $("tabs").querySelectorAll("button")) x.classList.toggle("on", x.dataset.pane === name);
+  for (const p of document.querySelectorAll(".pane")) p.classList.toggle("on", p.id === "pane-" + name);
+}
+
+function onFightEdit(e) {
+  const key = e.target.dataset.e;
+  if (!key) return;
+  const [what, idxRaw] = key.split(":");
+  const i = Number(idxRaw);
+  const k = e.target.dataset.k;
+  snapshot();
+  const f = S.doc.fight;
+  if (what === "ph") {
+    const p = f.phases[i];
+    p[k] = k === "name" ? e.target.value : Number(e.target.value) || 0;
+  } else if (what === "me") {
+    const m = f.mechanics[i];
+    m[k] = k === "name" ? e.target.value : Number(e.target.value) || 0;
+  } else if (what === "ba") {
+    const b = f.bossActions[i];
+    if (k === "name") b.name = e.target.value;
+    else if (k === "type") b.type = e.target.value;
+    else if (k === "time") {
+      // On garde l'incantation de la meme longueur en deplacant l'application.
+      b.time = Number(e.target.value) || 0;
+    } else if (k === "castStart") {
+      b.castTime = round1(Math.max(0, (Number(b.time) || 0) - (Number(e.target.value) || 0)));
+    }
+    if (!b.castTime) delete b.castTime;
+  }
+  paintAll(); save();
+}
+
+function removeFightRow(key) {
+  const [what, idxRaw] = key.split(":");
+  const i = Number(idxRaw);
+  snapshot();
+  const f = S.doc.fight;
+  if (what === "ph") f.phases.splice(i, 1);
+  if (what === "me") f.mechanics.splice(i, 1);
+  if (what === "ba") f.bossActions.splice(i, 1);
+  paintAll(); save();
+}
+
+// ======================================================================
+//  Demarrage
+// ======================================================================
+(async function boot() {
+  S.lang = localStorage.getItem("mitigoke.lang")
+        || (navigator.language || "en").slice(0, 2).toLowerCase();
+  if (["en", "fr", "de", "ja"].indexOf(S.lang) === -1) S.lang = "en";
+  $("lang").value = S.lang;
+
+  // mapping.json est un fichier statique : Apache le sert sans faire tourner PHP.
+  const map = await fetch("../mapping.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  S.map = { jobs: (map && map.jobs) || {}, abilities: (map && map.abilities) || {} };
+  if (!map) toast("mapping.json is unreachable — names and icons will be missing.", true);
+
+  // Le catalogue amont n'apporte que les recasts et les charges. S'il a disparu,
+  // le planificateur marche quand meme, sans les avertissements de recharge.
+  S.cat = await api("abilities=1").catch(() => ({}));
+
+  const saved = localStorage.getItem(LS_KEY);
+  if (saved) {
+    try { S.doc = normalise(JSON.parse(saved)); } catch (e) { S.doc = null; }
+  }
+  if (!S.doc) S.doc = normalise(blankDoc());
+
+  bind();
+  refreshUndo();
+  paintAll();
+
+  if (!saved) $("dlgImport").showModal();
+})();
+</script>
+</body>
+</html>

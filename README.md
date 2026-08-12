@@ -230,6 +230,21 @@ stale cache is served rather than an error if upstream is unreachable.
 
 ## Version
 
+**0.0.4**
+
+- **Chains.** Cues less than five seconds apart are shown together, joined by an arrow:
+  `Reprisal → Shake It Off`. The countdown stays that of the first, the others show their
+  offset. The rule applies step by step, so a chain can hold three or four. Warning beeps
+  are dropped for a cue whose predecessor is under two seconds away, otherwise a tight
+  chain would beep almost continuously.
+- **Who has the plan open.** In a party room, each client quietly announces the slot it
+  picked; the leader sees the expected line-up with a lit dot per connected slot. The
+  line-up comes from the plan itself, not a hardcoded eight-player party. Nothing personal
+  travels — a slot id and a job code, no name, no address.
+- **Per-job icons in `/admin/`.** Generic entries such as *Party Mit* get a **+** that
+  unfolds one line per candidate job — BRD, MCH and DNC for a `RANGED` entry — deduced
+  from the roles in `mapping.json`, so a future job appears on its own.
+
 **0.0.3**
 
 - **Export.** The `local` menu now folds together *load*, *export* and *template*. Export
