@@ -43,7 +43,12 @@
   }
   a { color: var(--accent); }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
-  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; letter-spacing: .06em; }
+  /* Le titre est un bouton : il ramene au chargement du plan depuis n'importe
+     quel ecran. Deguise en titre, il ne doit rien garder d'un bouton. */
+  h1 button { background: none; border: 0; padding: 0; min-height: 0; width: auto;
+              font: inherit; color: inherit; letter-spacing: inherit; cursor: pointer; }
+  h1 button:hover { background: none; color: var(--accent); }
   .sub { color: var(--muted); font-size: .9rem; margin-bottom: 24px; }
   .ver { font-size: .74rem; color: var(--past); border: 1px solid var(--line);
          border-radius: 999px; padding: 1px 7px; margin-left: 6px; white-space: nowrap; }
@@ -58,6 +63,10 @@
   button { cursor: pointer; background: #1b2836; border-color: #33445a; }
   button:hover { background: #24374a; }
   button.primary { background: var(--accent); color: #04121f; border-color: var(--accent); font-weight: 600; }
+  /* « Open prompter » ferme les reglages : c'est un depart, pas un chargement.
+     Le vert est deja celui de « ca arrive » dans le prompteur. */
+  button.go { background: var(--soon); color: #05231a; border-color: var(--soon); font-weight: 600; }
+  button.go:hover { background: #5fdb9c; border-color: #5fdb9c; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   .row { display: flex; gap: 12px; flex-wrap: wrap; }
   .row > * { flex: 1 1 160px; }
@@ -74,6 +83,18 @@
   .linkish.mute { color: var(--past); }
   .linkish.mute:hover { color: var(--muted); }
   .linkish:disabled { color: var(--past); text-decoration: none; cursor: not-allowed; }
+
+  /* Pied de page : signature et acces aux deux outils annexes. Volontairement
+     pale — ils n'ont rien a faire dans le champ de vision pendant un combat. */
+  .foot { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap;
+          margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--line);
+          font-size: .76rem; color: var(--past); }
+  .foot .grow { flex: 1 1 auto; }
+  /* Deux « + » nus : la destination n'apparait qu'au survol, en infobulle. Ce ne
+     sont pas des chemins que l'on veut proposer, seulement laisser atteignables. */
+  .foot .plus { color: var(--past); text-decoration: none; font-size: 1rem; line-height: 1;
+                padding: 1px 7px; border: 1px solid transparent; border-radius: 6px; }
+  .foot .plus:hover { color: var(--accent); border-color: var(--line); }
 
   /* Tout ce qui touche aux fichiers locaux est replie derriere « LOCAL » : c'est
      le filet de secours, pas le chemin normal. */
@@ -213,6 +234,14 @@
 
   .phase-tag { display: inline-block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
                color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  /* Le bouton de transition se tient contre l'etiquette de phase : c'est la
+     meme information, et le rang des commandes est deja plein. */
+  .phase-next { display: inline-block; font: inherit; font-size: .72rem;
+                text-transform: uppercase; letter-spacing: .06em; width: auto; min-height: 0;
+                padding: 1px 8px; border-radius: 999px; margin-left: 4px;
+                background: none; border: 1px solid var(--line); color: var(--soon); }
+  .phase-next:hover:not(:disabled) { background: #16241d; border-color: var(--soon); color: var(--soon); }
+  .phase-next:disabled { color: var(--past); border-color: var(--line); background: none; }
 
   /* ---- Equipe ---- */
   .team-state { font-size: .85rem; color: var(--muted); }
@@ -311,10 +340,10 @@
 <body>
 <div class="wrap">
 
-  <h1>Mitigoke</h1>
+  <h1><button type="button" id="home" title="Back to the loading screen">MITIGOKE</button></h1>
   <div class="sub">
     Load a plan shared from <a href="https://xivmit.app" target="_blank" rel="noopener noreferrer">xivmit.app</a>,
-    pick your slot, and follow your cues live.<span class="ver">v0.0.4</span>
+    pick your slot, and follow your cues live.<span class="ver">v0.0.5</span>
   </div>
 
   <!-- ============ Chargement du plan ============ -->
@@ -332,6 +361,8 @@
                 title="Load a plan first">export</button>
         <a class="linkish mute" href="plan-template.json" download>template</a>
       </span>
+      <button type="button" class="linkish mute" id="refreshPlan" hidden
+              title="Plans are cached here; this asks xivmit.app for the current version">refresh</button>
     </div>
     <input type="file" id="planFile" accept=".json,application/json" hidden />
     <div class="row" style="margin-top:14px">
@@ -406,7 +437,7 @@
     </div>
 
     <div class="row tight" style="margin-top:16px">
-      <button class="primary" id="go">Open prompter</button>
+      <button class="go" id="go">Open prompter</button>
       <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;margin:0">
         <input type="checkbox" id="sound" checked style="width:auto;min-height:0" /> Beep
       </label>
@@ -421,6 +452,7 @@
         <div id="who"></div>
         <div>
           <span class="phase-tag" id="phase">—</span>
+          <button type="button" class="phase-next" id="nextPhase" hidden>next phase ▸</button>
           <span class="team-state" id="barTeam"></span>
         </div>
       </div>
@@ -450,6 +482,16 @@
         <ul class="queue" id="queue"></ul>
       </div>
     </div>
+  </div>
+
+  <!-- ============ Pied de page ============ -->
+  <div class="foot">
+    <span>project by Danikuma SPINECHO Alpha@EU-Light</span>
+    <span class="grow"></span>
+    <a class="plus" href="plan_creator/" aria-label="Plan creator"
+       title="Plan creator — build or edit a plan on a timeline">+</a>
+    <a class="plus" href="admin/" aria-label="Ability table"
+       title="Ability table — names, icons, durations and per-job overrides">+</a>
   </div>
 </div>
 
@@ -568,11 +610,21 @@ function fillPlayers(code) {
 
   $("exportPlan").disabled = false;
   $("exportPlan").title = "Save this plan as a file";
+  // Un plan local ne vient de nulle part : il n'y a rien a rafraichir.
+  $("refreshPlan").hidden = S.local;
   $("opts").hidden = false;
   $("opts").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-async function loadPlan(code) {
+/**
+ * Charge un plan par son code.
+ *
+ * `force` demande au proxy de relire l'amont sans passer par son cache. C'est le
+ * pendant necessaire du cache long applique aux plans les plus demandes : sans
+ * lui, une equipe qui corrige son plan attendrait une heure sans comprendre
+ * pourquoi le prompteur la contredit.
+ */
+async function loadPlan(code, force) {
   const err = $("err");
   err.hidden = true;
   if (!code) {
@@ -590,7 +642,7 @@ async function loadPlan(code) {
   $("load").disabled = true;
   $("load").textContent = "Loading…";
   try {
-    S.plan = await api("plan=" + encodeURIComponent(code));
+    S.plan = await api("plan=" + encodeURIComponent(code) + (force ? "&refresh=1" : ""));
     const [fight, abilities, map] = await Promise.all([
       api("fight=" + encodeURIComponent(S.plan.fightId)),
       api("abilities=1"),
@@ -844,6 +896,39 @@ async function onPlanFile(ev) {
 function phaseAt(t) {
   const p = (S.fight.phases || []).find((p) => t >= p.startTime && t < p.endTime);
   return p ? p.name : "—";
+}
+
+/**
+ * Frontieres de phase : le debut de chaque phase sauf la premiere. Le pull n'est
+ * pas une transition, et y renvoyer l'horloge serait une remise a zero deguisee.
+ */
+function phaseBoundaries() {
+  return ((S.fight && S.fight.phases) || [])
+    .map((p) => ({ t: p.startTime, name: p.name }))
+    .filter((b) => b.t > 0)
+    .sort((a, b) => a.t - b.t);
+}
+
+/**
+ * La frontiere visee par « next phase » : la PLUS PROCHE de l'horloge, et non la
+ * suivante.
+ *
+ * Une phase ne se termine pas a l'heure du plan mais quand le groupe la tue :
+ * des la premiere transition, tout ce qui suit est decale d'autant que la phase
+ * a dure de plus ou de moins. Prendre la plus proche traite les deux sens avec la
+ * meme operation — tuee tot, l'horloge avance ; qui traine, elle recule — alors
+ * que « la suivante » se tromperait de phase des que l'horloge a deja franchi la
+ * frontiere. C'est aussi ce qui rend le bouton sans effet si on le presse deux
+ * fois : on est deja pose dessus.
+ */
+const PHASE_SNAP_DEAD = 2;   // s : sous cet ecart, l'horloge est deja posee dessus
+
+function nearestBoundary(t) {
+  let best = null;
+  for (const b of phaseBoundaries()) {
+    if (best === null || Math.abs(b.t - t) < Math.abs(best.t - t)) best = b;
+  }
+  return best;
 }
 
 // Action de boss la plus proche a partir du declenchement : le « pourquoi » du cue.
@@ -1130,6 +1215,36 @@ function updateQueue(t) {
   }
 }
 
+/**
+ * Le bouton de transition ne s'affiche que pendant un run, et seulement si le
+ * combat a plusieurs phases : un plan local sans phases n'a rien a recaler.
+ * Le libelle du titre n'est reecrit que s'il change — render() passe dix fois
+ * par seconde.
+ */
+function paintPhaseButton(t) {
+  const el = $("nextPhase");
+  const b = S.playing && t >= 0 ? nearestBoundary(t) : null;
+  el.hidden = !b;
+  if (!b) return;
+
+  // L'ecart signe dit exactement ce que le clic va faire — sans lui, l'infobulle
+  // proposerait « caler sur God Kefka » alors qu'on y est deja, et rien
+  // n'indiquerait qu'un clic peut aussi faire RECULER l'horloge.
+  const d = b.t - t;
+  const onIt = Math.abs(d) < PHASE_SNAP_DEAD;
+  el.disabled = onIt || (!!S.room && !isLeader());
+
+  const sig = b.t + "|" + Math.round(d) + "|" + el.disabled;
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+  el.title = !!S.room && !isLeader()
+    ? "Only the party leader can move the clock."
+    : onIt
+      ? `The clock is already on ${b.name}.`
+      : `${b.name} at ${fmt(b.t)} — press P the moment the phase actually turns ` +
+        `(clock ${d > 0 ? "forward" : "back"} ${Math.abs(d).toFixed(0)} s).`;
+}
+
 function render() {
   // La boucle tourne des le chargement de la page : tant qu'aucun plan n'est
   // charge, il n'y a simplement rien a peindre.
@@ -1141,6 +1256,7 @@ function render() {
   $("clock").textContent = fmt(t);
   $("clock").classList.toggle("pre", t < 0);
   $("phase").textContent = t >= 0 ? phaseAt(t) : "before pull";
+  paintPhaseButton(t);
 
   // Le cue courant : le premier non encore passe (tolerance de 2 s apres).
   const nextIdx = S.cues.findIndex((c) => c.t > t - 2);
@@ -1226,6 +1342,40 @@ function togglePause() {
     S.playing = false;
     $("pause").textContent = "Resume";
   }
+}
+
+/**
+ * Pose l'horloge sur un temps de combat donne, sans toucher au plan.
+ *
+ * En equipe c'est exactement le chemin d'une reprise apres pause : le client
+ * envoie un DELAI negatif et le serveur redate le 00:00, donc tout le monde se
+ * recale sur la meme reference au sondage suivant — jusqu'a deux secondes plus
+ * tard, mais sur la bonne valeur, puisqu'elle est datee par le serveur.
+ */
+function setClock(target) {
+  if (S.room) return leaderSet({ startIn: -target });
+  S.t0 = performance.now() - (target + num("pre")) * 1000;
+  S.t = target;
+  S.playing = true;
+  S.fired.clear();
+  $("pause").disabled = false;
+  $("pause").textContent = "Pause";
+}
+
+/**
+ * « Next phase » : la phase vient de tourner pour de vrai, on y cale l'horloge.
+ *
+ * Les temps de recharge, eux, courent en temps reel et ne se reinitialisent pas
+ * a la transition. Avancer l'horloge rapproche donc d'autant les declenchements
+ * suivants, et un plan taille pour un kill plus lent peut demander une capacite
+ * qui n'est pas encore revenue. Ce n'est pas un defaut du recalage : c'est ce qui
+ * arrive vraiment quand on tue plus vite que prevu.
+ */
+function jumpToPhase() {
+  if (!S.fight || !S.playing || S.t < 0) return;
+  if (S.room && !isLeader()) return;
+  const b = nearestBoundary(S.t);
+  if (b) setClock(b.t);
 }
 
 function resetRun() {
@@ -1466,16 +1616,36 @@ $("go").addEventListener("click", () => {
   if (!S.room) resetRun(); else paintTeam();
 });
 
-$("back").addEventListener("click", () => {
+/**
+ * Retour a l'ecran de chargement. Volontairement SANS rechargement de page : le
+ * titre est cliquable depuis le prompteur, et recharger en plein combat ferait
+ * perdre le plan, le salon et l'horloge. Les reglages ne reapparaissent que si un
+ * plan est charge, sinon on montrerait une carte vide.
+ */
+function backToSetup() {
   if (!S.room) S.playing = false;
   $("stage").classList.remove("on");
   $("setup").hidden = false;
-  $("opts").hidden = false;
-});
+  if (S.plan) $("opts").hidden = false;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+$("back").addEventListener("click", backToSetup);
+$("home").addEventListener("click", backToSetup);
 
 $("start").addEventListener("click", startRun);
 $("pause").addEventListener("click", togglePause);
 $("reset").addEventListener("click", resetRun);
+$("nextPhase").addEventListener("click", jumpToPhase);
+$("refreshPlan").addEventListener("click", async () => {
+  if (!S.code || S.local) return;
+  $("refreshPlan").disabled = true;
+  $("refreshPlan").textContent = "refreshing…";
+  const ok = await loadPlan(S.code, true);
+  $("refreshPlan").textContent = ok ? "refreshed" : "refresh";
+  $("refreshPlan").disabled = false;
+  if (ok) setTimeout(() => ($("refreshPlan").textContent = "refresh"), 1500);
+});
 $("invite").addEventListener("click", createRoom);
 $("leaveTeam").addEventListener("click", leaveRoom);
 $("openFile").addEventListener("click", pickPlanFile);
@@ -1514,6 +1684,7 @@ document.addEventListener("keydown", (e) => {
   if (!$("stage").classList.contains("on") || e.target.tagName === "INPUT") return;
   if (e.code === "Space") { e.preventDefault(); S.playing ? togglePause() : startRun(); }
   if (e.key === "r" || e.key === "R") resetRun();
+  if (e.key === "p" || e.key === "P") jumpToPhase();
 });
 
 // --------------------------------------------------------------- demarrage

@@ -69,6 +69,27 @@
   .jobhint { color: var(--muted); font-size: .76rem; margin-bottom: 4px; }
   .note { color: var(--muted); font-size: .85rem; margin: 14px 0 6px; }
 
+  /* Le SECOND +, en bout de ligne : nature de l'action, repartition des degats,
+     recast. Vert et non bleu, pour qu'on ne le confonde jamais avec celui des
+     icones par job — les deux peuvent etre ouverts en meme temps. */
+  button.expand.parm.on { background: var(--soon); color: #04121f; border-color: var(--soon); }
+  tr.parmrow td { background: #0d1a17; padding: 12px 14px 14px 60px; }
+  .parmgrid { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+  .parm { display: flex; flex-direction: column; gap: 3px; }
+  .parm label { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .parm input { width: 108px; font-size: .84rem; }
+  .parm input.wide { width: 150px; }
+  .parm .u { font-size: .66rem; color: #4a5b70; }
+  .parmhint { color: var(--muted); font-size: .76rem; margin-bottom: 9px; max-width: 92ch; }
+  /* La prose de l'amont, affichee telle quelle : c'est la source qu'on recopie a
+     la main, la repartition magique/physique n'existe nulle part ailleurs. */
+  .srcdesc { display: block; margin-top: 9px; font-size: .78rem; color: var(--muted);
+             border-left: 2px solid #24413a; padding: 3px 0 3px 10px; max-width: 92ch; }
+  .srcdesc b { color: var(--soon); font-weight: 600; }
+  /* Une saisie refusee ne doit pas disparaitre en silence : le champ reste
+     visible et rouge, mais rien n'est ecrit dans DOC. */
+  input.bad { border-color: var(--bad); color: var(--bad); }
+
   dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line);
            border-radius: 12px; padding: 18px; max-width: 620px; width: 92%; }
   dialog::backdrop { background: rgba(0,0,0,.62); }
@@ -99,6 +120,9 @@
       <option value="nodur">No duration</option>
       <option value="community">Community labels</option>
       <option value="byjob">Per-job icon</option>
+      <option value="split">Magic/phys split</option>
+      <option value="shield">Shields</option>
+      <option value="notype">No type</option>
     </select>
     <span class="stat" id="stat"></span>
     <button class="primary" id="save" disabled>Save</button>
@@ -117,6 +141,7 @@
         <th style="width:78px" title="How long the effect lasts, in seconds. Drives the “still active” icon in the prompter.">Dur (s)</th>
         <th style="width:360px">Icon</th>
         <th style="width:150px">Game action</th>
+        <th style="width:40px" title="Damage type, shield, recast — everything the planner reads">More</th>
       </tr>
     </thead>
     <tbody id="rows"></tbody>
@@ -124,6 +149,18 @@
 
   <div class="note" id="foot"></div>
 </div>
+
+<!-- Suggestions, pas contraintes : mapping.php valide la forme du mot, pas une
+     liste fermee, pour qu'une valeur inventee un jour par l'amont passe. -->
+<datalist id="dl-type">
+  <option value="mitigation"></option><option value="heal"></option>
+  <option value="shield"></option><option value="invuln"></option>
+  <option value="utility"></option>
+</datalist>
+<datalist id="dl-scope">
+  <option value="party"></option><option value="self"></option>
+  <option value="single"></option><option value="enemy"></option>
+</datalist>
 
 <dialog id="picker">
   <strong>Pick an icon</strong>
@@ -147,6 +184,30 @@ let DOC = null;        // le document mapping.json complet
 let dirty = false;
 let pickTarget = null; // { id, job } — job nul pour l'icone principale
 const expanded = new Set();   // capacites dont les lignes par job sont depliees
+const expanded2 = new Set();  // ... et celles dont les parametres le sont
+
+// Catalogue amont, charge a la demande : il ne sert qu'a AFFICHER la prose de
+// `description` a cote des champs, jamais a remplir quoi que ce soit. La
+// repartition magique/physique ne s'y trouve que sous forme de phrase, et une
+// phrase ne se recopie pas toute seule sans se tromper.
+let CAT = null;
+let catPending = null;
+
+function loadCatalogue() {
+  if (CAT || catPending) return catPending;
+  catPending = fetch("../api.php?abilities=1")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => { CAT = d || {}; draw(); })
+    .catch(() => { CAT = {}; });
+  return catPending;
+}
+
+/**
+ * Champs numeriques et leur borne, les memes que dans mapping.php. Les tenir en
+ * double est un moindre mal : la page doit pouvoir refuser une saisie sans
+ * aller-retour serveur, et le serveur ne peut pas faire confiance a la page.
+ */
+const NUM = { dur: 3600, cd: 3600, mit: 100, mitMagic: 100, mitPhys: 100, charges: 10, shieldStacks: 20 };
 
 // Le champ « job » d'une capacite vaut parfois un ROLE. C'est ce qui permet de
 // proposer exactement les bons jobs sans aucune liste en dur : le role de chaque
@@ -173,8 +234,11 @@ function statLine() {
   const noIcon = a.filter((e) => !e.icon && !e.byJob).length;
   const noFr = a.filter((e) => !e.fr).length;
   const noDur = a.filter((e) => !e.dur).length;
+  const noType = a.filter((e) => !e.type).length;
+  const split = a.filter((e) => e.mitMagic !== undefined || e.mitPhys !== undefined).length;
   return `<b>${a.length}</b> abilities · <b>${noIcon}</b> without icon · <b>${noFr}</b> without French`
-       + ` · <b>${noDur}</b> without duration`
+       + ` · <b>${noDur}</b> without duration · <b>${noType}</b> without type`
+       + ` · <b>${split}</b> with a damage split`
        + (dirty ? ' · <span class="dirty">unsaved changes</span>' : "");
 }
 
@@ -186,6 +250,9 @@ function matches(id, e) {
   if (f === "nodur" && e.dur) return false;
   if (f === "community" && !e.official && e.fr) return false;
   if (f === "byjob" && !e.byJob) return false;
+  if (f === "split" && e.mitMagic === undefined && e.mitPhys === undefined) return false;
+  if (f === "shield" && e.type !== "shield") return false;
+  if (f === "notype" && e.type) return false;
   if (!q) return true;
   return (id + " " + (e.job || "") + " " + (e.en || "") + " " + (e.fr || "") +
           " " + (e.de || "") + " " + (e.ja || "")).toLowerCase().includes(q);
@@ -211,8 +278,61 @@ function jobRows(id, e) {
   const hint = role
     ? `Jobs of role “${esc(role)}”. A job listed here overrides the main icon.`
     : `No role on this entry, so every job is offered.`;
-  return `<tr class="jobrow" data-id="${esc(id)}"><td colspan="9">` +
+  return `<tr class="jobrow" data-id="${esc(id)}"><td colspan="10">` +
          `<div class="jobhint">${hint}</div><div class="joblines">${lines}</div></td></tr>`;
+}
+
+/** Un champ du panneau de parametres. `unit` n'est qu'une legende. */
+function parmField(e, key, label, unit, wide) {
+  const v = e[key];
+  const num = NUM[key] !== undefined;
+  return `<div class="parm"><label>${esc(label)}</label>` +
+         `<input data-f="${esc(key)}"${num ? ` type="number" min="0" max="${NUM[key]}" step="${key === "cd" || key === "dur" ? "0.5" : "1"}"` : ` list="dl-${esc(key)}"`}` +
+         `${wide ? ' class="wide"' : ""} value="${v === undefined ? "" : esc(v)}" placeholder="—" />` +
+         `<span class="u">${esc(unit || "")}</span></div>`;
+}
+
+/**
+ * Le second panneau : ce que le PLANIFICATEUR lit et que le prompteur ignore.
+ *
+ * `mit` y figure aussi — c'est le chiffre d'ensemble, il n'avait aucun champ
+ * dans le tableau jusqu'ici et se retrouvait modifiable seulement en
+ * regenerant. Sa signification ne change pas.
+ */
+function parmRows(id, e) {
+  const up = CAT ? CAT[id] : null;
+  let src = "";
+  if (CAT === null) {
+    src = `<span class="srcdesc">Loading the upstream description…</span>`;
+  } else if (up && up.description) {
+    const bits = [];
+    if (up.type) bits.push("type " + up.type);
+    if (up.scope) bits.push("scope " + up.scope);
+    if (up.mitPercent) bits.push("mitPercent " + up.mitPercent);
+    if (up.cooldown) bits.push("cooldown " + up.cooldown + " s");
+    src = `<span class="srcdesc"><b>Upstream:</b> ${esc(up.description)}` +
+          (bits.length ? `<br />${esc(bits.join(" · "))}` : "") + `</span>`;
+  } else {
+    src = `<span class="srcdesc">Not in the upstream catalogue — added by hand here.</span>`;
+  }
+
+  return `<tr class="parmrow" data-id="${esc(id)}"><td colspan="10">` +
+    `<div class="parmhint">` +
+      `<b>${esc(id)}</b> — what the planner reads. All optional, and all ignored by the prompter. ` +
+      `Leave a field empty rather than writing 0: an empty field is dropped, a 0 is refused. ` +
+      `<b>mit</b> stays the headline figure; fill <b>magic</b> and <b>phys</b> only when the ` +
+      `ability actually treats the two differently — otherwise mit already applies to both.` +
+    `</div>` +
+    `<div class="parmgrid">` +
+      parmField(e, "type", "Type", "mitigation · heal · shield · invuln · utility", true) +
+      parmField(e, "scope", "Scope", "party · self · single · enemy", true) +
+      parmField(e, "mit", "Mit", "% overall") +
+      parmField(e, "mitMagic", "Magic", "% vs magical") +
+      parmField(e, "mitPhys", "Phys", "% vs physical") +
+      parmField(e, "cd", "Recast", "seconds") +
+      parmField(e, "charges", "Charges", "if > 1") +
+      parmField(e, "shieldStacks", "Shield stacks", "Haima, Panhaima") +
+    `</div>${src}</td></tr>`;
 }
 
 function draw() {
@@ -251,9 +371,12 @@ function draw() {
             `title="Assign a different ability per job">+</button>` +
         `</div>${byJob}</td>` +
         `<td>${ref}</td>` +
+        `<td><button class="expand parm${expanded2.has(id) ? " on" : ""}" data-act="expand2" ` +
+          `title="Damage type, shield, recast — read by the planner">+</button></td>` +
       `</tr>`
     );
     if (expanded.has(id)) out.push(jobRows(id, e));
+    if (expanded2.has(id)) out.push(parmRows(id, e));
   }
 
   body.innerHTML = out.join("");
@@ -293,12 +416,19 @@ $("rows").addEventListener("input", (ev) => {
   const id = inp.closest("tr").dataset.id;
   const f = inp.dataset.f;
   const v = inp.value.trim();
-  if (f === "dur") {
+  if (NUM[f] !== undefined) {
     // Un nombre, pas une chaine : le prompteur calcule t + dur pour savoir si
-    // l'effet court encore, et "15" concatenerait au lieu d'additionner.
+    // l'effet court encore, et "15" concatenerait au lieu d'additionner. Zero
+    // et vide sont traites pareil — mapping.php refuse 0, il faut OMETTRE.
     const n = parseFloat(v);
-    if (v !== "" && isFinite(n) && n > 0) DOC.abilities[id].dur = n;
-    else delete DOC.abilities[id].dur;
+    if (v !== "" && isFinite(n) && n > 0 && n <= NUM[f]) DOC.abilities[id][f] = n;
+    else delete DOC.abilities[id][f];
+    inp.classList.toggle("bad", v !== "" && DOC.abilities[id][f] === undefined);
+  } else if (f === "type" || f === "scope") {
+    const w = v.toLowerCase();
+    if (/^[a-z][a-z0-9_-]{0,23}$/.test(w)) DOC.abilities[id][f] = w;
+    else delete DOC.abilities[id][f];
+    inp.classList.toggle("bad", v !== "" && DOC.abilities[id][f] === undefined);
   } else if (v) {
     DOC.abilities[id][f] = v;
   } else {
@@ -316,6 +446,15 @@ $("rows").addEventListener("input", (ev) => {
 });
 
 $("rows").addEventListener("click", (ev) => {
+  // Le second + d'abord : il porte aussi la classe .expand, donc le test du
+  // premier l'attraperait au passage.
+  const p2 = ev.target.closest('button[data-act="expand2"]');
+  if (p2) {
+    const id = p2.closest("tr").dataset.id;
+    if (expanded2.has(id)) expanded2.delete(id); else { expanded2.add(id); loadCatalogue(); }
+    draw();
+    return;
+  }
   const exp = ev.target.closest('button[data-act="expand"]');
   if (exp) {
     const id = exp.closest("tr").dataset.id;

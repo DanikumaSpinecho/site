@@ -21,6 +21,24 @@ const MAX_BODY      = 1048576;   // 1 Mo : la table en fait 30 ko
 const KEEP_BACKUPS  = 10;
 const MAPPING_TOKEN = '';        // vide = ouvert (developpement)
 
+/**
+ * Champs numeriques connus, avec leur borne haute. Un champ absent de cette
+ * table n'est PAS rejete : il est ecrit tel quel. La liste sert a valider ce
+ * qu'on connait, pas a interdire ce qu'on ne connait pas encore.
+ *
+ *   dur, cd     secondes           mit, mitMagic, mitPhys  pourcentages
+ *   charges     nombre de charges  shieldStacks            piles (Haima, Panhaima)
+ */
+const NUMERIC_FIELDS = [
+    'dur'          => 3600,
+    'cd'           => 3600,
+    'mit'          => 100,
+    'mitMagic'     => 100,
+    'mitPhys'      => 100,
+    'charges'      => 10,
+    'shieldStacks' => 20,
+];
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
@@ -88,10 +106,14 @@ foreach ($doc['abilities'] as $id => $entry) {
         }
     }
 
-    // duree et pourcentage doivent etre des NOMBRES : le prompteur calcule
+    // Les champs numeriques doivent etre des NOMBRES : le prompteur calcule
     // t + dur pour savoir si un effet court encore, et une chaine "15" y
     // concatenerait au lieu d'additionner. On coupe le probleme a l'entree.
-    foreach (['dur', 'mit'] as $k) {
+    //
+    // Un champ vide est retire, jamais stocke a zero : c'est pour ca qu'un
+    // bouclier sans reduction doit OMETTRE `mit`. Les bornes ne sont pas
+    // decoratives, elles rattrapent une virgule mal placee.
+    foreach (NUMERIC_FIELDS as $k => $range) {
         if (!isset($entry[$k]) || $entry[$k] === '' || $entry[$k] === null) {
             unset($doc['abilities'][$id][$k]);
             continue;
@@ -100,11 +122,31 @@ foreach ($doc['abilities'] as $id => $entry) {
             fail(400, "\"$k\" must be a number for $id.");
         }
         $v = (float) $entry[$k];
-        if ($v <= 0 || $v > 3600) {
-            fail(400, "\"$k\" out of range for $id.");
+        if ($v <= 0 || $v > $range) {
+            fail(400, "\"$k\" out of range for $id (expected 0 < v <= $range).");
         }
         $doc['abilities'][$id][$k] = ($v == (int) $v) ? (int) $v : $v;
     }
+
+    // `type` et `scope` reprennent le vocabulaire de l'amont — mitigation, heal,
+    // shield, invuln, utility / party, self, single, enemy. On valide la FORME,
+    // pas une liste fermee : le jour ou l'amont invente une valeur, elle doit
+    // passer sans qu'on ait a redeployer ce fichier.
+    foreach (['type', 'scope'] as $k) {
+        if (!isset($entry[$k]) || $entry[$k] === '' || $entry[$k] === null) {
+            unset($doc['abilities'][$id][$k]);
+            continue;
+        }
+        $v = strtolower(trim((string) $entry[$k]));
+        if (!preg_match('/^[a-z][a-z0-9_-]{0,23}$/', $v)) {
+            fail(400, "\"$k\" is not a plain lowercase word for $id.");
+        }
+        $doc['abilities'][$id][$k] = $v;
+    }
+
+    // Tout autre champ passe intact. C'est deliberé : la table est partagee par
+    // deux sessions, et rejeter une cle inconnue ferait echouer la sauvegarde de
+    // l'une des deux des que l'autre ajoute quelque chose.
 }
 
 foreach ((array) ($doc['jobs'] ?? []) as $job => $j) {
@@ -118,11 +160,17 @@ foreach ((array) ($doc['jobs'] ?? []) as $job => $j) {
 
 // Sauvegarde de la version precedente : l'endpoint est ouvert, une bevue doit
 // rester rattrapable.
+//
+// Le nom porte des MILLISECONDES et non des secondes : deux enregistrements dans
+// la meme seconde — deux onglets, ou un script — retombaient sur le meme nom et
+// le second copy() ecrasait la sauvegarde du premier. On perdait alors
+// exactement l'etat qu'on voulait pouvoir retrouver.
 if (is_file(MAPPING_FILE)) {
     if (!is_dir(BACKUP_DIR)) {
         @mkdir(BACKUP_DIR, 0755, true);
     }
-    @copy(MAPPING_FILE, BACKUP_DIR . '/mapping-' . date('Ymd-His') . '.json');
+    $stamp = date('Ymd-His') . '-' . substr(sprintf('%03d', (int) (microtime(true) * 1000) % 1000), 0, 3);
+    @copy(MAPPING_FILE, BACKUP_DIR . '/mapping-' . $stamp . '.json');
     $old = glob(BACKUP_DIR . '/mapping-*.json') ?: [];
     sort($old);
     foreach (array_slice($old, 0, max(0, count($old) - KEEP_BACKUPS)) as $f) {

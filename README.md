@@ -42,7 +42,29 @@ Settings, in seconds:
 | **Personal offset** | shifts your own display; adjustable mid-fight |
 | **Pull countdown** | the clock starts negative, to match the in-game `/countdown` |
 
-Keyboard: `Space` start/pause, `R` reset.
+Keyboard: `Space` start/pause, `R` reset, `P` phase change.
+
+## Phase changes
+
+A plan is a single timeline anchored at the pull, but a phase ends when the party kills it.
+From the first transition onward, everything downstream is off by however much that phase
+ran long or short — the one structural flaw of a timeline prompter.
+
+**next phase ▸**, next to the phase tag, snaps the clock onto the boundary at the moment the
+phase actually turns. It targets the boundary **nearest** the clock rather than the next one:
+a phase killed early moves the clock forward, one that drags moves it back, and both are the
+same operation. "The next one" would pick the wrong phase as soon as the clock has already
+crossed the boundary, which is exactly what happens in progression. The tooltip carries the
+signed delta, so you can see that a click may also rewind.
+
+In a party, only the leader has it, and it travels the same path as resuming from a pause:
+the client sends a delay, the server dates the new 00:00, and followers land on it at their
+next poll — up to two seconds later, but on the right value.
+
+What it does not repair: cooldowns run in real time and do not reset on a transition. Moving
+the clock forward brings the following cues that much closer, so a plan built around a slower
+kill can ask for an ability that is not back yet. That is not an artefact of the snap — it is
+what actually happens when you kill faster than planned.
 
 ## Mechanics
 
@@ -183,9 +205,11 @@ Then open `https://your-host/?plan=SOME-CODE`.
 ### Endpoints
 
 ```
-api.php?plan=UMAD-G0FF1B   the shared plan       (cached 300 s)
+api.php?plan=UMAD-G0FF1B   the shared plan       (cached 300 s, 3600 s if hot)
+api.php?plan=…&refresh=1   the same, re-read from upstream
 api.php?fight=umad         the fight             (cached 86400 s)
 api.php?abilities=1        the ability catalogue (cached 86400 s)
+api.php?popular=1          the most-requested plans on this host
 
 sync.php?now=1             server time (calibration probe)
 sync.php?room=ID           room state
@@ -196,9 +220,16 @@ icons.php?q=reprisal       icon search, for /admin/
 ```
 
 `api.php` exists because the upstream API sends no CORS headers, so the browser cannot call
-it directly. It has three fixed actions and no free-form path: **no arbitrary URL can be
+it directly. It has fixed actions and no free-form path: **no arbitrary URL can be
 requested through it.** Responses are cached on disk to spare the upstream server, and a
 stale cache is served rather than an error if upstream is unreachable.
+
+The plans a host actually serves are a handful, always the same ones. `api.php` keeps a
+tally and gives the **top five an hour of cache** instead of five minutes, which is where
+the upstream calls actually go. The tally is read before the call and written after it, so
+a mistyped code never takes one of the five places. The price is that an edit can take an
+hour to show up — hence **refresh**, under the input field, which skips the cache read
+without giving up the stale-cache fallback.
 
 ### Before you expose this publicly
 
@@ -213,6 +244,9 @@ stale cache is served rather than an error if upstream is unreachable.
   a public, indexable deployment.
 - If your host puts a CDN in front of static files, images may bypass `.htaccess` and lose
   those headers. Check, or disable the CDN for the host.
+- **`api.php?popular=1` returns plan codes in the clear.** They are already public upstream
+  and tied to no one, but they are unguessable — publishing them on an open endpoint makes
+  them guessable. Close it alongside `mapping.php` if that matters to you.
 
 ## Known limitations
 
@@ -229,6 +263,20 @@ stale cache is served rather than an error if upstream is unreachable.
 - `/admin/` is built for a desktop screen; the prompter itself is not.
 
 ## Version
+
+**0.0.5**
+
+- **Phase changes.** `next phase ▸` snaps the clock onto the nearest phase boundary the
+  moment a phase actually turns, in either direction. In a party it travels through the
+  server like a resume, so it needed no new room field. See *Phase changes* above.
+- **A cache for the plans that matter.** The five most-requested plans on a host get an
+  hour of cache instead of five minutes, with a **refresh** control to force a re-read.
+  Suggested by the author of xivmit.app, who confirmed he has no objection to this site
+  using the API.
+- **Footer.** A signature, and two bare `+` links — the plan creator and the ability table.
+  They name themselves on hover only: reachable, not advertised.
+- The page title is a button back to the loading screen, without reloading: a reload
+  mid-fight would drop the plan, the room and the clock.
 
 **0.0.4**
 
@@ -277,7 +325,8 @@ stale cache is served rather than an error if upstream is unreachable.
 Plans, fights and the ability catalogue come from **[xivmit.app](https://xivmit.app)** by
 liam_galt ([ko-fi](https://ko-fi.com/liam_galt)) — this project is only a viewer and would
 not exist without it. Its API is public but neither documented nor contractual, and may
-change without notice.
+change without notice. He was told about this site and had no objection; the caching in
+0.0.5 is his suggestion.
 
 Localised ability names come from **[XIVAPI](https://xivapi.com)**, queried once offline
 when `mapping.json` is generated; the running site never calls it.

@@ -101,13 +101,80 @@
   .colj { flex: 1 0 118px; min-width: 118px; }
   #head .col1, #head .col2, #head .col3, #head .col4 { z-index: 7; background: var(--panel); }
 
-  .colh { cursor: pointer; user-select: none; }
+  .colh { cursor: pointer; user-select: none; position: relative; }
   .colh .slot { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
   .colh .who { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
   .colh img { width: 22px; height: 22px; display: block; }
   .colh select { width: 100%; padding: 3px 6px; font-size: .82rem; margin-top: 3px; }
   .colh .n { font-size: .7rem; color: var(--past); }
   .colh.on { background: #1c2939; box-shadow: inset 0 -2px 0 var(--accent); }
+
+  /* --- verrou des casts du boss --- */
+  #head .col4 { display: flex; align-items: center; gap: 6px; }
+  #btnLock { margin-left: auto; padding: 2px 7px; font-size: .68rem; border-radius: 6px;
+             white-space: nowrap; }
+  #btnLock.open { border-color: var(--now); color: var(--now); background: #2a2415; }
+
+  /* --- poignee de redimensionnement --- */
+  /* Sur le bord droit, un peu debordante : viser 7 px a la souris est deja peu,
+     3 px le rendrait inattrapable. */
+  .rz { position: absolute; top: 0; right: -3px; width: 7px; height: 100%;
+        cursor: col-resize; z-index: 9; }
+  .rz:hover, .rz.on { background: var(--accent); opacity: .55; }
+
+  /* --- groupes de jobs (heals, ranged, casters) --- */
+  #head > div.colg { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 5px; }
+  .colg .ghd { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 0 7px;
+               flex-wrap: wrap; row-gap: 3px; }
+  .colg .ghd .slot { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .colg .exp, .colg .more { flex: 0 0 auto; padding: 0 5px; font-size: .66rem; line-height: 1.6;
+               border-radius: 5px; background: #1b2836; border: 1px solid #33445a; }
+  .colg .more { margin-left: auto; color: var(--muted); }
+  .colg .more:hover { color: var(--text); }
+  .gadd { display: flex; flex-wrap: wrap; gap: 3px; padding: 0 7px; }
+  .colg .gsubs { display: flex; gap: 2px; min-width: 0; }
+  .colg .gsubs.mini { flex-wrap: wrap; padding: 0 7px; gap: 3px; }
+
+  /* Deplie : une sous-colonne par job, exactement large comme sa voie. */
+  .gsub { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 3px;
+          padding: 2px 4px; border-radius: 6px; border: 1px solid transparent; }
+  .gsub:hover { background: #1b2836; }
+  .gsub.on { background: #1c2939; border-color: #35506e; }
+  .gsub img { width: 18px; height: 18px; }
+  .gsub .j { font-size: .68rem; letter-spacing: .02em; }
+  .gsub .n { margin-left: auto; }
+
+  /* Case de visibilite : cochee, le job a sa colonne. Decochee, il ne reste que
+     sa pastille dans le titre du groupe — sans quoi rien ne le rallumerait. */
+  .isob { display: inline-flex; align-items: center; gap: 3px; cursor: pointer;
+          border: 1px solid transparent; border-radius: 6px; padding: 1px 2px; }
+  .isob:hover { background: #1b2836; }
+  .isob input { width: 12px; height: 12px; margin: 0; padding: 0; accent-color: var(--accent); }
+  .isob img { width: 16px; height: 16px; }
+  .isob .n { font-size: .62rem; }
+  .isob.off { opacity: .4; }
+  .isob.off:hover { opacity: 1; background: #1b2836; }
+  .gsubs.mini .isob.on { border-color: #35506e; background: #16273a; }
+
+  .glane { display: flex; min-width: 0; }
+  .glane > .lane { flex: 1 1 0; min-width: 0; }
+
+  /* Groupe replie sur plusieurs jobs : des reperes, pas des icones ecrasees —
+     a cette largeur on ne saurait de toute facon pas a qui elles sont. */
+  /* Le bord haut, opaque, marque l'instant — c'est l'information ; le corps,
+     tres pale, dit seulement jusqu'ou l'effet court. L'inverse donnerait une
+     bouillie verte des que trois durees se recouvrent. */
+  .lane.mark { cursor: default; }
+  .mk { position: absolute; border-radius: 0 0 3px 3px; cursor: pointer;
+        background: rgba(143, 163, 186, .09); border-top: 3px solid var(--past);
+        box-shadow: inset 0 0 0 1px rgba(4, 8, 13, .45); }
+  .mk:hover { background: rgba(77, 163, 255, .34); z-index: 5; }
+  .mk.sel { border-color: var(--now); box-shadow: 0 0 0 1px var(--now); z-index: 6; }
+  .mk.tank   { border-top-color: var(--tank);   background: rgba(74, 127, 212, .09); }
+  .mk.healer { border-top-color: var(--healer); background: rgba(89, 179, 107, .09); }
+  .mk.melee  { border-top-color: var(--melee);  background: rgba(196, 87, 76, .09); }
+  .mk.ranged { border-top-color: var(--ranged); background: rgba(201, 162, 39, .09); }
+  .mk.caster { border-top-color: var(--caster); background: rgba(143, 107, 212, .09); }
 
   #lanes { position: relative; }
   .lane {
@@ -165,9 +232,16 @@
   }
   .cast:hover { border-color: var(--accent); }
   .cast.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-  .cast .nm { font-size: .78rem; line-height: 1.15; overflow: hidden;
+  .cast.mov { cursor: grab; }
+  .cast.mov:hover { border-color: var(--now); }
+  .cast .nm { font-size: .78rem; line-height: 1.15; overflow: hidden; min-width: 0;
               text-overflow: ellipsis; white-space: nowrap; }
   .cast .tm { font-size: .66rem; color: var(--past); font-variant-numeric: tabular-nums; margin-left: auto; }
+  .cast .dmg { flex: 0 0 auto; font-size: .58rem; font-weight: 700; letter-spacing: .03em;
+               padding: 0 4px; border-radius: 4px; background: #24354a; color: var(--muted); }
+  .cast .dmg.magical  { background: #2b2145; color: #c4b0f5; }
+  .cast .dmg.physical { background: #3b2820; color: #f0b394; }
+  .cast .dmg.special  { background: #123430; color: #7fdcc4; }
   .cast.tb { border-color: #5a3327; background: #201720; }
   .cast.tb .nm { color: var(--tb); }
   .cast.enrage { border-color: #6b2a2a; background: #22151a; }
@@ -188,17 +262,26 @@
     display: flex; align-items: flex-start; gap: 4px; padding: 2px 3px;
     box-shadow: 0 1px 2px rgba(0,0,0,.4);
   }
-  .blk:hover { border-color: var(--accent); z-index: 3; }
-  .blk.sel { border-color: var(--now); box-shadow: 0 0 0 1px var(--now); z-index: 3; }
+  /* Les tuiles portent un `z-index` en ligne pour s'empiler de gauche a droite ;
+     `!important` est ici le seul moyen de faire passer devant celle qu'on vise. */
+  .blk:hover { border-color: var(--accent); z-index: 30 !important; }
+  .blk.sel { border-color: var(--now); box-shadow: 0 0 0 1px var(--now); z-index: 29 !important; }
   .blk.clash { border-color: var(--bad); }
-  .blk img { width: 20px; height: 20px; display: block; flex: 0 0 auto; border-radius: 3px; }
-  .blk .chip {
-    width: 20px; height: 20px; border-radius: 3px; flex: 0 0 auto; font-size: .5rem;
-    font-weight: 700; display: flex; align-items: center; justify-content: center; color: #04121f;
-    background: var(--past);
+  /* L'icone reste carree quoi qu'il arrive : `aspect-ratio` tient la hauteur sur
+     la largeur, et `max-width` la fait ceder au bloc — mais jamais au nom pose a
+     cote, d'ou `flex: 0 0 auto`. Sans ca, un nom long ecrasait l'icone a 10 px
+     dans une colonne pourtant large. */
+  .blk img, .blk .chip {
+    display: block; flex: 0 0 auto; width: 20px; max-width: 100%; height: auto;
+    aspect-ratio: 1 / 1; object-fit: contain; border-radius: 3px;
   }
-  .blk .nm { font-size: .68rem; line-height: 1.1; overflow: hidden; }
-  .blk.short .nm { display: none; }
+  .blk .chip {
+    font-size: .5rem; font-weight: 700; color: #04121f; background: var(--past);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .blk .nm { font-size: .68rem; line-height: 1.1; overflow: hidden; min-width: 0; }
+  .blk.short .nm, .blk.tight .nm { display: none; }
+  .blk.tight { padding: 1px; gap: 2px; }
   .blk .nt { color: var(--now); }
   /* Ce qui reste a courir avant de pouvoir relancer la capacite. */
   .cdg {
@@ -242,6 +325,16 @@
   .pane h3 { font-size: .74rem; text-transform: uppercase; letter-spacing: .07em;
              color: var(--muted); margin: 16px 0 7px; font-weight: 600; }
   .pane h3:first-child { margin-top: 0; }
+
+  /* Bascule secondes / m:ss. `text-transform: none` parce que le h3 est en
+     capitales et transformerait « m:ss » en « M:SS ». */
+  .seg { display: inline-flex; margin-left: 8px; vertical-align: middle;
+         border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; color: var(--muted);
+                padding: 1px 8px; font-size: .68rem; text-transform: none; letter-spacing: 0;
+                font-variant-numeric: tabular-nums; }
+  .seg button:hover { background: #1b2836; color: var(--text); }
+  .seg button.on { background: var(--accent); color: #04121f; font-weight: 700; }
   .muted { color: var(--muted); font-size: .84rem; }
   .empty { color: var(--past); font-size: .85rem; padding: 20px 4px; text-align: center; }
 
@@ -268,6 +361,25 @@
   table.ed tr.sel td { background: #1c2939; }
   table.ed .x { color: var(--past); background: none; border: 0; padding: 2px 5px; cursor: pointer; }
   table.ed .x:hover { color: var(--bad); background: none; }
+  table.ed .more:hover { color: var(--accent); }
+  table.ed .more.on { color: var(--accent); }
+
+  /* --- fiche de degats d'un cast, depliee sous sa ligne --- */
+  tr.dmgrow td { padding: 2px 3px 8px; }
+  .dmgbox { border: 1px solid var(--line); border-radius: 8px; background: #0b1219;
+            padding: 8px 9px; display: flex; flex-direction: column; gap: 7px; }
+  .dmgbox .dt { display: flex; gap: 5px; }
+  .dmgbox .dt label {
+    flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 4px;
+    border: 1px solid var(--line); border-radius: 7px; padding: 4px 3px; cursor: pointer;
+    font-size: .72rem; text-transform: capitalize;
+  }
+  .dmgbox .dt label:hover { background: #1b2836; }
+  .dmgbox .dt label.on { border-color: var(--accent); background: #16273a; }
+  .dmgbox .dt input { width: 12px; height: 12px; margin: 0; padding: 0; accent-color: var(--accent); }
+  .dmgbox .amt { display: flex; align-items: center; gap: 8px; font-size: .72rem;
+                 text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .dmgbox .amt input { flex: 1 1 auto; width: auto; }
 
   .issue { display: block; width: 100%; text-align: left; border: 1px solid var(--line);
            background: var(--panel2); border-radius: 8px; padding: 7px 9px; margin-bottom: 6px;
@@ -372,13 +484,17 @@
       </div>
 
       <div class="pane" id="pane-fight">
-        <h3>Fight</h3>
+        <h3>Fight
+          <span id="tfmt" class="seg" title="How every time below is typed">
+            <button data-tf="s">s</button><button data-tf="ms">m:ss</button>
+          </span>
+        </h3>
         <div class="r" style="display:flex;gap:8px;margin-bottom:8px">
           <input id="fName" placeholder="Fight name" style="flex:1 1 auto" />
           <input id="fShort" placeholder="Short" style="width:78px" />
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
-          <label class="muted" for="fDur">Duration (s)</label>
+          <label class="muted" for="fDur" id="fDurLab">Duration (s)</label>
           <input id="fDur" type="number" min="30" step="1" />
         </div>
 
@@ -457,7 +573,18 @@
     <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td class="muted">duplicate it 30 s later</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td class="muted">undo / redo</td></tr>
     <tr><td><kbd>Esc</kbd></td><td class="muted">deselect</td></tr>
+    <tr><td><kbd>Drag</kbd> a column edge</td><td class="muted">widen it — double-click to reset</td></tr>
+    <tr><td><kbd>🔒</kbd> in the boss header</td><td class="muted">unlock to drag boss casts in time</td></tr>
+    <tr><td><kbd>☑</kbd> next to a job</td><td class="muted">untick to hide that job's column</td></tr>
+    <tr><td><kbd>+2</kbd> on a role column</td><td class="muted">add a column for another job of that role</td></tr>
+    <tr><td><kbd>▾</kbd> on a role column</td><td class="muted">merge its jobs back into one column</td></tr>
   </table>
+  <p class="muted" style="margin:12px 0 0">
+    Every job in the plan gets its own column. Hiding one only hides it — its mitigations
+    stay in the plan and come back with the tick. A <i>merged</i> column carrying two jobs
+    at once shows plain markers instead of icons: at that width nothing would tell you
+    whose they are.
+  </p>
   <div class="acts"><button id="helpClose" class="primary">Got it</button></div>
 </dialog>
 
@@ -486,6 +613,16 @@ const S = {
   issues: [],
   undo: [],
   redo: [],
+
+  // -- preferences d'affichage : elles ne partent pas a l'export, ce n'est pas
+  //    le plan qui change, c'est la facon de le regarder.
+  wid: {},          // largeur choisie par colonne, en pixels
+  merged: {},       // groupes ramenes a UNE colonne — l'exception, pas la regle
+  jv: {},           // visibilite par job : { H1: { AST: false } }, sinon defaut
+  lockBoss: true,   // casts du boss verrouilles : on ne les bouge pas par megarde
+  openBa: {},       // fiches de degats ouvertes, par id de cast
+  addOpen: {},      // « + » deplie d'un groupe — passager, jamais memorise
+  tfmt: "s",        // saisie des temps du combat : "s" ou "ms" (m:ss)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -498,6 +635,45 @@ const fmt = (s) => {
   return (neg ? "-" : "") + m + ":" + String(r).padStart(2, "0");
 };
 const round1 = (n) => Math.round(n * 10) / 10;
+const shortNum = (n) => (n >= 10000 ? Math.round(n / 1000) + "k" : String(n));
+
+// ----------------------------------------------------------------------
+//  Temps saisissables
+// ----------------------------------------------------------------------
+// `fmt()` sert a l'affichage et arrondit a la seconde ; ici on edite des
+// valeurs exactes — un cast tombe a 38,7 s — donc on garde le dixieme.
+
+/** 38.7 -> « 0:38.7 », 67 -> « 1:07 ». Le dixieme n'apparait que s'il existe. */
+function toClock(sec) {
+  const n = round1(Number(sec) || 0);
+  const neg = n < 0, a = Math.abs(n);
+  let m = Math.floor(a / 60);
+  let s = Math.round((a - m * 60) * 10) / 10;
+  if (s >= 60) { m += 1; s = 0; }                 // 59,96 s ne doit pas donner « 0:60 »
+  const whole = Math.floor(s);
+  const tenth = Math.round((s - whole) * 10);
+  return (neg ? "-" : "") + m + ":" + String(whole).padStart(2, "0") + (tenth ? "." + tenth : "");
+}
+
+/**
+ * Accepte « 1:07.5 », « 1:07,5 » et « 67.5 » : refuser une saisie juste parce
+ * qu'elle est ecrite autrement serait gratuit, et la virgule est ce que tape un
+ * clavier francais.
+ */
+function fromClock(txt) {
+  const raw = String(txt == null ? "" : txt).trim().replace(",", ".");
+  if (!raw) return 0;
+  const neg = raw[0] === "-";
+  const body = neg ? raw.slice(1) : raw;
+  const p = body.split(":");
+  const v = p.length >= 2
+    ? (Number(p[0]) || 0) * 60 + (Number(p[1]) || 0)
+    : (Number(body) || 0);
+  return round1(neg ? -v : v);
+}
+
+/** La valeur d'un champ de temps, dans le mode courant. */
+const tval = (el) => (S.tfmt === "ms" ? fromClock(el.value) : Number(el.value) || 0);
 
 let toastTimer = null;
 function toast(msg, bad) {
@@ -517,20 +693,129 @@ function toast(msg, bad) {
 // dernier choix de chaque liste est le role generique (TANK, HEALER…) : c'est
 // ce qu'emploient les plans de reference sur xivmit, et le prompteur sait
 // deja l'afficher en pastille de role.
+/**
+ * `multi` marque les emplacements qui se deplient en sous-colonnes de job. Un
+ * MT reste un MT quel que soit son job — c'est un poste, pas un job — alors
+ * qu'un plan de soin doit pouvoir porter la version mage blanc ET la version
+ * astromancien, pour qu'on choisisse la sienne au moment de jouer.
+ */
 const SLOTS = [
   { key: "MT", label: "Main tank",  def: "PLD", jobs: ["PLD", "WAR", "DRK", "GNB"], role: "TANK" },
   { key: "OT", label: "Off tank",   def: "WAR", jobs: ["PLD", "WAR", "DRK", "GNB"], role: "TANK" },
-  { key: "H1", label: "Pure heal",  def: "WHM", jobs: ["WHM", "AST"],               role: "HEALER" },
-  { key: "H2", label: "Shield heal",def: "SCH", jobs: ["SCH", "SGE"],               role: "HEALER" },
+  { key: "H1", label: "Pure heal",  def: "WHM", jobs: ["WHM", "AST"],               role: "HEALER", multi: true },
+  { key: "H2", label: "Shield heal",def: "SCH", jobs: ["SGE", "SCH"],               role: "HEALER", multi: true },
   { key: "M1", label: "Melee 1",    def: "MNK", jobs: ["MNK", "DRG", "NIN", "SAM", "RPR", "VPR"], role: "MELEE" },
   { key: "M2", label: "Melee 2",    def: "DRG", jobs: ["MNK", "DRG", "NIN", "SAM", "RPR", "VPR"], role: "MELEE" },
-  { key: "R1", label: "Ranged",     def: "BRD", jobs: ["BRD", "MCH", "DNC"],        role: "RANGED" },
-  { key: "C1", label: "Caster",     def: "BLM", jobs: ["BLM", "SMN", "RDM", "PCT"], role: "CASTER" },
+  { key: "R1", label: "Ranged",     def: "BRD", jobs: ["MCH", "DNC", "BRD"],        role: "RANGED", multi: true },
+  { key: "C1", label: "Caster",     def: "BLM", jobs: ["SMN", "RDM", "PCT", "BLM"], role: "CASTER", multi: true },
 ];
 const PSEUDO = { TANK: "tank", HEALER: "healer", MELEE: "melee", RANGED: "ranged", CASTER: "caster", EXTRAS: "" };
+const slotByKey = (k) => SLOTS.find((s) => s.key === k) || null;
 
 function defaultParty() {
   return SLOTS.map((s, i) => ({ id: "p" + (i + 1), job: s.def, name: s.label, _slot: s.key }));
+}
+
+/**
+ * Materialise le poste d'un job dans un groupe. On ne le cree qu'au premier
+ * besoin : afficher les quatre casters ne doit pas remplir le plan de colonnes
+ * vides, et `_auto` permet de les retirer a l'export si rien n'y a ete pose.
+ */
+function ensurePlayer(slotKey, job) {
+  const found = S.doc.players.find((x) => x._slot === slotKey && x.job === job);
+  if (found) return found.id;
+  const p = { id: newId("p"), job, _slot: slotKey, _auto: true };
+  S.doc.players.push(p);
+  save();
+  return p.id;
+}
+
+const countOf = (pid) => S.doc.assignments.reduce((n, a) => n + (a.playerId === pid ? 1 : 0), 0);
+
+/**
+ * Un job est visible par defaut des lors qu'un poste le tient : c'est ce que
+ * fait xivmit — une colonne par joueur, jamais de fusion. Les autres jobs de
+ * l'emplacement restent proposes, decoches, pour qui veut ecrire la variante
+ * astromancien d'un plan de mage blanc.
+ */
+function jobVisible(key, job, hasPlayer) {
+  const o = S.jv[key];
+  return o && o[job] !== undefined ? !!o[job] : hasPlayer;
+}
+
+/**
+ * Les colonnes a peindre, dans l'ordre. Un groupe donne une colonne par job
+ * visible ; ramene a une seule, il les concatene. En-tete et voies appellent la
+ * meme fonction : c'est ce qui garantit que les deux lignes restent alignees.
+ */
+function columns() {
+  const out = [];
+  const placed = new Set();
+
+  for (const s of SLOTS) {
+    const mine = S.doc.players.filter((p) => p._slot === s.key);
+    mine.forEach((p) => placed.add(p.id));
+
+    if (!s.multi) {
+      for (const p of mine) out.push({ kind: "solo", key: p.id, pid: p.id, player: p, label: s.label });
+      continue;
+    }
+    // Un poste au job exotique — un role generique comme RANGED, par exemple —
+    // devient une sous-colonne de plus plutot que de disparaitre.
+    const jobs = s.jobs.slice();
+    for (const p of mine) if (jobs.indexOf(p.job) === -1) jobs.push(p.job);
+
+    const subs = [], off = [];
+    for (const j of jobs) {
+      const p = mine.find((x) => x.job === j) || null;
+      (jobVisible(s.key, j, !!p) ? subs : off).push({ job: j, pid: p ? p.id : null, player: p });
+    }
+    out.push({ kind: "group", key: s.key, slot: s, subs, off, merged: !!S.merged[s.key] });
+  }
+
+  // Postes hors emplacement : le plan de reference en compte onze.
+  for (const p of S.doc.players) {
+    if (!placed.has(p.id)) out.push({ kind: "solo", key: p.id, pid: p.id, player: p, label: labelOf(p) });
+  }
+  return out;
+}
+
+/** Le job d'un groupe ramene a une colonne sur lequel on peut deposer, s'il n'y en a qu'un. */
+function mergedTarget(c) {
+  if (c.subs.length <= 1) return c.subs[0] || null;
+  const live = c.subs.filter((s) => s.pid && countOf(s.pid) > 0);
+  return live.length >= 2 ? null : live[0] || c.subs[0] || null;
+}
+
+// -- largeurs de colonne
+const COLW = 118;
+const widthOf = (key) => Math.max(48, Math.round(S.wid[key] || COLW));
+function widStyle(key, n) {
+  const w = widthOf(key) * Math.max(1, n);
+  return `flex:1 0 ${w}px;min-width:${w}px`;
+}
+function applyWidth(key, w, n) {
+  const tot = Math.max(48, w) * Math.max(1, n);
+  for (const el of document.querySelectorAll('[data-col="' + key + '"]')) {
+    el.style.flex = "1 0 " + tot + "px";
+    el.style.minWidth = tot + "px";
+  }
+}
+
+const LS_VIEW = "mitigoke.creator.view";
+function saveView() {
+  try {
+    localStorage.setItem(LS_VIEW, JSON.stringify(
+      { wid: S.wid, merged: S.merged, jv: S.jv, lockBoss: S.lockBoss, tfmt: S.tfmt }));
+  } catch (e) { /* quota */ }
+}
+function loadView() {
+  try {
+    const v = JSON.parse(localStorage.getItem(LS_VIEW) || "{}");
+    S.wid = v.wid || {}; S.merged = v.merged || {}; S.jv = v.jv || {};
+    S.lockBoss = v.lockBoss !== false;
+    S.tfmt = v.tfmt === "ms" ? "ms" : "s";
+  } catch (e) { /* premiere visite */ }
 }
 
 /**
@@ -546,6 +831,13 @@ function slotOf(player) {
 function labelOf(player) {
   const s = slotOf(player);
   return (s && s.label) || player.name || player.job || player.id;
+}
+
+/** Qui, dans un message : « Pure heal (AST) » quand le groupe porte plusieurs jobs. */
+function whoOf(player) {
+  if (!player) return "";
+  const s = slotOf(player);
+  return s && s.multi ? labelOf(player) + " (" + player.job + ")" : labelOf(player);
 }
 
 /** Jobs proposables a une colonne : ceux de son emplacement, ou ceux du role. */
@@ -568,22 +860,58 @@ function roleOfJob(job) {
   return PSEUDO[job] !== undefined ? job : "";
 }
 
-/** Nom, icone, duree et recast d'une capacite pour un job donne. */
+/**
+ * Tout ce qu'on sait d'une capacite pour un job donne.
+ *
+ * `mapping.json` est la SOURCE : depuis l'enrichissement du 15 aout il porte la
+ * nature, la portee, le recast, les charges et la repartition magique/physique,
+ * en plus des noms, des icones et des durees au niveau 100. `S.cat` n'est plus
+ * qu'un filet pour une table deployee anterieure — voir boot().
+ */
 function view(abilityId, job) {
   const m = S.map.abilities[abilityId];
   const c = S.cat[abilityId];
-  if (!m && !c) return { name: abilityId, icon: null, dur: 0, cd: 0, charges: 1, mit: 0, job: "" };
+  if (!m && !c) {
+    return { name: abilityId, icon: null, dur: 0, cd: 0, charges: 1, mit: 0, type: "", scope: "", job: "" };
+  }
   const icon = (job && m && m.byJob && m.byJob[job]) || (m && m.icon) || null;
   return {
     name: (m && (m[S.lang] || m.en)) || (c && c.name) || abilityId,
     icon,
-    // mapping.json porte deja la duree effective au niveau 100 : elle prime.
     dur: (m && m.dur) || (c && c.duration) || 0,
-    cd: (c && c.cooldown) || 0,
-    charges: (c && c.charges) || 1,
+    cd: (m && m.cd) || (c && c.cooldown) || 0,
+    charges: (m && m.charges) || (c && c.charges) || 1,
+    // `mit` reste le chiffre d'ensemble ; la repartition ne vit qu'a cote, et
+    // seules les capacites qui traitent vraiment les deux types differemment
+    // la portent — 17 sur 158.
     mit: (m && m.mit) || (c && c.mitPercent) || 0,
+    mitMagic: m && m.mitMagic,
+    mitPhys: m && m.mitPhys,
+    type: (m && m.type) || (c && c.type) || "",
+    scope: (m && m.scope) || (c && c.scope) || "",
+    shieldStacks: m && m.shieldStacks,
     job: (m && m.job) || (c && c.job) || "",
   };
+}
+
+/** « 10% » ou « 10% M / 5% P » quand la capacite distingue les deux types. */
+function mitLabel(v) {
+  if (v.mitMagic === undefined && v.mitPhys === undefined) return v.mit ? v.mit + "%" : "";
+  const bits = [];
+  if (v.mitMagic) bits.push(v.mitMagic + "% M");
+  if (v.mitPhys) bits.push(v.mitPhys + "% P");
+  return bits.join(" / ");
+}
+
+/** Cette capacite a-t-elle un sens pour ce job ? Meme regle que la palette, en O(1). */
+function okForJob(abilityId, job) {
+  if (!job) return true;
+  const a = S.map.abilities[abilityId];
+  if (!a) return true;   // capacite inconnue de mapping.json : on ne juge pas
+  const role = roleOfJob(job);
+  return a.job === job || (!!role && a.job === role)
+      || abilityId.indexOf(String(job).toLowerCase() + "_") === 0
+      || !!(a.byJob && a.byJob[job]);
 }
 
 /** Capacites proposables a un poste : celles du job, plus celles de son role. */
@@ -694,6 +1022,7 @@ function normalise(d) {
 const playerOf = (pid) => S.doc.players.find((p) => p.id === pid) || null;
 const jobOf = (pid) => { const p = playerOf(pid); return p ? p.job : ""; };
 const assignOf = (id) => S.doc.assignments.find((a) => a.id === id) || null;
+const castOf = (id) => S.doc.fight.bossActions.find((b) => b.id === id) || null;
 
 // ======================================================================
 //  Geometrie
@@ -708,8 +1037,12 @@ function tickStep() {
   return 30;
 }
 
-/** Aimante sur la grille, et sur les instants qui comptent vraiment. */
-function snapTime(t, free) {
+/**
+ * Aimante sur la grille, et sur les instants qui comptent vraiment.
+ * `skipCast` exclut le cast qu'on est en train de deplacer : sans ca il
+ * s'aimanterait sur lui-meme et ne bougerait jamais.
+ */
+function snapTime(t, free, skipCast) {
   const dur = S.doc.fight.duration;
   t = Math.max(0, Math.min(dur, t));
   if (free) return round1(t);
@@ -718,6 +1051,7 @@ function snapTime(t, free) {
   const tol = 5 / S.px;
   let best = null, bestD = tol;
   for (const b of S.doc.fight.bossActions) {
+    if (skipCast && b.id === skipCast) continue;
     for (const c of [b.time, b.time - (b.castTime || 0)]) {
       const d = Math.abs(c - t);
       if (d < bestD) { bestD = d; best = c; }
@@ -742,23 +1076,81 @@ function paintHead() {
   h.push('<div class="col1"></div>');
   h.push('<div class="col2"><div class="slot">Ph</div></div>');
   h.push('<div class="col3"><div class="slot">Mechanic</div></div>');
-  h.push('<div class="col4"><div class="slot">Boss cast</div></div>');
+  h.push(
+    '<div class="col4"><div class="slot">Boss cast</div>' +
+    `<button id="btnLock" class="${S.lockBoss ? "" : "open"}" title="${
+      S.lockBoss ? "Boss casts are pinned. Unlock to drag them on the timeline."
+                 : "Boss casts can be dragged. Click to pin them again."}">` +
+    (S.lockBoss ? "🔒 locked" : "🔓 movable") + "</button></div>");
 
-  S.doc.players.forEach((p) => {
-    const cnt = S.doc.assignments.filter((a) => a.playerId === p.id).length;
-    const opts = jobOptions(p).map((j) =>
-      `<option value="${esc(j)}"${j === p.job ? " selected" : ""}>${esc(j)}</option>`);
-    h.push(
-      `<div class="colh colj${S.sel === p.id ? " on" : ""}" data-pid="${esc(p.id)}">` +
-        `<div class="slot">${esc(labelOf(p))}</div>` +
-        `<div class="who">${jobIcon(p.job)}<span class="n">${cnt}</span></div>` +
-        `<select data-job="${esc(p.id)}">${opts.join("")}</select>` +
-      `</div>`);
-  });
+  for (const c of columns()) h.push(c.kind === "solo" ? headSolo(c) : headGroup(c));
   $("head").innerHTML = h.join("");
   // Les etiquettes de phase et de mecanique collent juste sous l'en-tete : sa
   // hauteur depend du contenu, on la mesure plutot que de la deviner.
   document.documentElement.style.setProperty("--headh", $("head").offsetHeight + "px");
+}
+
+function headSolo(c) {
+  const p = c.player;
+  const opts = jobOptions(p).map((j) =>
+    `<option value="${esc(j)}"${j === p.job ? " selected" : ""}>${esc(j)}</option>`).join("");
+  return `<div class="colh colj${S.sel === p.id ? " on" : ""}" data-pid="${esc(p.id)}" ` +
+         `data-col="${esc(c.key)}" data-n="1" style="${widStyle(c.key, 1)}">` +
+           `<div class="slot">${esc(c.label)}</div>` +
+           `<div class="who">${jobIcon(p.job)}<span class="n">${countOf(p.id)}</span></div>` +
+           `<select data-job="${esc(p.id)}">${opts}</select>` +
+           `<div class="rz" data-rz="${esc(c.key)}" title="Drag to resize · double-click to reset"></div>` +
+         `</div>`;
+}
+
+function headGroup(c) {
+  const n = c.merged ? 1 : Math.max(1, c.subs.length);
+  const tgt = c.merged ? mergedTarget(c) : null;
+  const sel = c.subs.some((s) => s.pid && s.pid === S.sel);
+
+  // Les jobs decoches n'ont plus de colonne. Leurs pastilles se rangent derriere
+  // un « + » : affichees en permanence, les quatre casters faisaient passer la
+  // barre d'en-tete de 50 a 109 px pour une commande qu'on emploie une fois.
+  const open = !!S.addOpen[c.key];
+  const more = c.off.length
+    ? `<button class="more" data-add="${esc(c.key)}" title="Other ${esc(c.slot.label)} jobs">` +
+      (open ? "×" : "+" + c.off.length) + "</button>"
+    : "";
+  const off = open && c.off.length
+    ? `<div class="gadd">` + c.off.map((s) =>
+        `<label class="isob off" title="Add a ${esc(s.job)} column">` +
+          `<input type="checkbox" data-jv="${esc(c.key)}" value="${esc(s.job)}" />` +
+          jobIcon(s.job) + `</label>`).join("") + `</div>`
+    : "";
+
+  const subs = c.subs.map((s) => {
+    const cnt = s.pid ? countOf(s.pid) : 0;
+    const box = `<label class="isob on" title="Hide the ${esc(s.job)} column">` +
+                `<input type="checkbox" data-jv="${esc(c.key)}" value="${esc(s.job)}" checked /></label>`;
+    if (!c.merged) {
+      return `<div class="gsub${s.pid && s.pid === S.sel ? " on" : ""}" data-slot="${esc(c.key)}" ` +
+             `data-job="${esc(s.job)}"${s.pid ? ` data-pid="${esc(s.pid)}"` : ""}>` +
+               box + jobIcon(s.job) +
+               `<span class="j">${esc(s.job)}</span><span class="n">${cnt}</span>` +
+             `</div>`;
+    }
+    return `<label class="isob on" title="Hide the ${esc(s.job)} column">` +
+             `<input type="checkbox" data-jv="${esc(c.key)}" value="${esc(s.job)}" checked />` +
+             jobIcon(s.job) + (cnt ? `<span class="n">${cnt}</span>` : "") + `</label>`;
+  }).join("");
+
+  return `<div class="colh colg colj${sel ? " on" : ""}" data-grp="${esc(c.key)}" ` +
+         `data-col="${esc(c.key)}" data-n="${n}" style="${widStyle(c.key, n)}">` +
+           `<div class="ghd">` +
+             `<button class="exp" data-exp="${esc(c.key)}" title="${
+               c.merged ? "One column per job" : "Merge into a single column"}">` +
+             (c.merged ? "▸" : "▾") + "</button>" +
+             `<span class="slot">${esc(c.slot.label)}${
+               c.merged && tgt ? " · " + esc(tgt.job) : ""}</span>` + more +
+           `</div>` + off +
+           `<div class="gsubs${c.merged ? " mini" : ""}">${subs}</div>` +
+           `<div class="rz" data-rz="${esc(c.key)}" title="Drag to resize · double-click to reset"></div>` +
+         `</div>`;
 }
 
 // ======================================================================
@@ -805,66 +1197,154 @@ function paintLanes() {
     for (const hit of (b.hits || [])) {
       cs.push(`<div class="hit" style="top:${yOf(Number(hit) || 0)}px"></div>`);
     }
+    // Type et montant des degats, quand ils ont ete renseignes.
+    let dmg = "";
+    if (b.damageType || b.damage) {
+      const bits = [b.damageType ? b.damageType[0].toUpperCase() : "•"];
+      if (b.damage) bits.push(shortNum(Number(b.damage) || 0));
+      dmg = `<span class="dmg ${esc(b.damageType || "")}" title="${
+        esc((b.damageType || "damage") + (b.damage ? " · " + b.damage : ""))}">${
+        esc(bits.join(" "))}</span>`;
+    }
     cs.push(
-      `<div class="cast ${kind}${S.pickCast === b.id ? " sel" : ""}" data-cast="${esc(b.id)}" ` +
-      `style="top:${yOf(t) - 10}px">` +
-        `<span class="nm">${esc(b.name || "—")}</span>` +
+      `<div class="cast ${kind}${S.pickCast === b.id ? " sel" : ""}${S.lockBoss ? "" : " mov"}" ` +
+      `data-cast="${esc(b.id)}" style="top:${yOf(t) - 10}px">` +
+        `<span class="nm">${esc(b.name || "—")}</span>` + dmg +
         `<span class="tm">${fmt(t)}</span>` +
       `</div>`);
   }
   out.push(`<div class="lane col4" id="lcast">${cs.join("")}</div>`);
 
   // -- voies de job
-  for (const p of S.doc.players) {
-    out.push(`<div class="lane job colj${S.sel === p.id ? " on" : ""}" data-pid="${esc(p.id)}">` +
-             laneBlocks(p) + `</div>`);
-  }
+  for (const c of columns()) out.push(c.kind === "solo" ? laneSolo(c) : laneGroup(c));
   $("lanes").innerHTML = out.join("");
+}
+
+function laneSolo(c) {
+  const p = c.player;
+  return `<div class="lane job colj${S.sel === p.id ? " on" : ""}" data-pid="${esc(p.id)}" ` +
+         `data-col="${esc(c.key)}" style="${widStyle(c.key, 1)}">` +
+         laneBlocks(p.id, p.job, widthOf(c.key)) + `</div>`;
+}
+
+function laneGroup(c) {
+  const n = c.merged ? 1 : Math.max(1, c.subs.length);
+  const style = widStyle(c.key, n);
+
+  if (!c.merged) {
+    const subs = c.subs.map((s) =>
+      `<div class="lane job${s.pid && s.pid === S.sel ? " on" : ""}" data-slot="${esc(c.key)}" ` +
+      `data-job="${esc(s.job)}"${s.pid ? ` data-pid="${esc(s.pid)}"` : ""}>` +
+        (s.pid ? laneBlocks(s.pid, s.job, widthOf(c.key)) : "") + `</div>`).join("");
+    return `<div class="glane colj" data-col="${esc(c.key)}" style="${style}">${subs}</div>`;
+  }
+
+  const tgt = mergedTarget(c);
+  if (!tgt) {
+    // Plusieurs jobs portent des capacites dans une seule colonne : on ne peut
+    // ni les empiler ni dire a qui appartient une icone, donc des reperes.
+    const live = c.subs.filter((s) => s.pid && countOf(s.pid) > 0);
+    return `<div class="lane mark colj" data-col="${esc(c.key)}" style="${style}">` +
+           laneMarkers(live) + `</div>`;
+  }
+  return `<div class="lane job colj${tgt.pid && tgt.pid === S.sel ? " on" : ""}" ` +
+         `data-slot="${esc(c.key)}" data-job="${esc(tgt.job)}"` +
+         `${tgt.pid ? ` data-pid="${esc(tgt.pid)}"` : ""} ` +
+         `data-col="${esc(c.key)}" style="${style}">` +
+         (tgt.pid ? laneBlocks(tgt.pid, tgt.job, widthOf(c.key)) : "") + `</div>`;
+}
+
+/** Une bande par job, un repere par capacite : sa position et sa duree, c'est tout. */
+function laneMarkers(subs) {
+  const n = Math.max(1, subs.length);
+  const w = 100 / n;
+  const html = [];
+  subs.forEach((s, i) => {
+    const role = PSEUDO[roleOfJob(s.job)] || "";
+    for (const a of S.doc.assignments) {
+      if (a.playerId !== s.pid) continue;
+      const v = view(a.abilityId, s.job);
+      const top = yOf(a.startTime);
+      const h = Math.max(4, yOf(v.dur || 0));
+      html.push(
+        `<div class="mk ${role}${S.pick === a.id ? " sel" : ""}" data-a="${esc(a.id)}" ` +
+        `style="top:${top}px;height:${h}px;left:calc(${i * w}% + 2px);width:calc(${w}% - 4px)" ` +
+        `title="${esc(s.job + " · " + v.name + " — " + fmt(a.startTime) +
+                      (a.note ? " — " + a.note : ""))}"></div>`);
+    }
+  });
+  return html.join("");
 }
 
 /**
  * Empile les blocs qui se recouvrent sur des pistes cote a cote : un soigneur
  * enchaine cinq boutons en trois secondes, sans ca on ne verrait que le dernier.
+ *
+ * Le decoupage se fait par GRAPPE de blocs qui se touchent, et la largeur n'est
+ * divisee que dans la grappe concernee : une capacite isolee garde toute la
+ * colonne meme si le soigneur enchaine quatre boutons ailleurs dans le combat.
  */
-function laneBlocks(p) {
+function laneBlocks(pid, job, wpx) {
   const list = S.doc.assignments
-    .filter((a) => a.playerId === p.id)
+    .filter((a) => a.playerId === pid)
     .sort((a, b) => a.startTime - b.startTime);
   if (!list.length) return "";
 
   const MIN_SPAN = 3;  // secondes : sinon les capacites instantanees se marchent dessus
-  const ends = [];
-  const html = [];
-  const clash = new Set(S.issues.filter((i) => i.kind === "cd").flatMap((i) => i.refs || []));
+  const spanOf = (a) => Math.max(view(a.abilityId, job).dur || 0, MIN_SPAN);
 
+  const groups = [];
+  let cur = null, reach = -1;
   for (const a of list) {
-    const v = view(a.abilityId, p.job);
-    const span = Math.max(v.dur || 0, MIN_SPAN);
-    let track = ends.findIndex((e) => e <= a.startTime + 0.01);
-    if (track === -1) { track = ends.length; ends.push(0); }
-    ends[track] = a.startTime + span;
+    if (!cur || a.startTime >= reach - 0.01) { cur = []; groups.push(cur); reach = -1; }
+    cur.push(a);
+    reach = Math.max(reach, a.startTime + spanOf(a));
+  }
 
+  const clash = new Set(S.issues.filter((i) => i.kind === "cd").flatMap((i) => i.refs || []));
+  const html = [];
+
+  for (const g of groups) {
+    // Deux passes : la largeur d'un bloc depend du nombre total de pistes de sa
+    // grappe, qu'on ne connait qu'une fois la grappe entierement placee.
+    const ends = [];
+    const track = g.map((a) => {
+      let tr = ends.findIndex((e) => e <= a.startTime + 0.01);
+      if (tr === -1) { tr = ends.length; ends.push(0); }
+      ends[tr] = a.startTime + spanOf(a);
+      return tr;
+    });
     const cols = Math.max(1, ends.length);
-    const w = 100 / cols;
-    const top = yOf(a.startTime);
-    const h = Math.max(22, yOf(v.dur || 0));
-    const style = `top:${top}px;height:${h}px;left:calc(${track * w}% + 2px);width:calc(${w}% - 4px)`;
 
-    // Fantome de recharge : ce qui reste avant de pouvoir relancer.
-    let cdg = "";
-    if (v.cd && v.cd > (v.dur || 0)) {
-      const gh = yOf(v.cd - (v.dur || 0));
-      cdg = `<div class="cdg" style="top:${top + h}px;height:${gh}px;` +
-            `left:calc(${track * w}% + 2px);width:calc(${w}% - 4px)"></div>`;
-    }
-    html.push(cdg);
-    html.push(
-      `<div class="blk${h < 30 ? " short" : ""}${S.pick === a.id ? " sel" : ""}` +
-      `${clash.has(a.id) ? " clash" : ""}" data-a="${esc(a.id)}" style="${style}" ` +
-      `title="${esc(v.name)} — ${fmt(a.startTime)}${a.note ? " — " + esc(a.note) : ""}">` +
-        abilityIcon(v, p.job) +
-        `<span class="nm">${esc(v.name)}${a.note ? '<br /><span class="nt">' + esc(a.note) + "</span>" : ""}</span>` +
-      `</div>`);
+    // Un huitieme de colonne, c'est une icone de trois pixels : carree, mais
+    // plus reconnaissable. En dessous de MIN_BLK on cesse de partager la largeur
+    // et on decale les pistes en tuiles, comme on le dessinerait a la main.
+    const MIN_BLK = 26;
+    const avail = Math.max(MIN_BLK, (wpx || COLW) - 4);
+    const bw = Math.max(MIN_BLK, avail / cols);
+    const step = cols > 1 ? Math.min(bw, (avail - bw) / (cols - 1)) : 0;
+
+    g.forEach((a, k) => {
+      const v = view(a.abilityId, job);
+      const top = yOf(a.startTime);
+      const h = Math.max(22, yOf(v.dur || 0));
+      const box = `left:${round1(2 + track[k] * step)}px;width:${round1(bw)}px`;
+
+      // Fantome de recharge : ce qui reste avant de pouvoir relancer. Toujours
+      // sous les blocs, sinon sa trame grise viendrait voiler la tuile voisine.
+      if (v.cd && v.cd > (v.dur || 0)) {
+        html.push(`<div class="cdg" style="top:${top + h}px;height:${yOf(v.cd - (v.dur || 0))}px;` +
+                  `${box};z-index:0"></div>`);
+      }
+      html.push(
+        `<div class="blk${h < 30 ? " short" : ""}${bw < 64 ? " tight" : ""}` +
+        `${S.pick === a.id ? " sel" : ""}${clash.has(a.id) ? " clash" : ""}" ` +
+        `data-a="${esc(a.id)}" style="top:${top}px;height:${h}px;${box};z-index:${track[k] + 1}" ` +
+        `title="${esc(v.name)} — ${fmt(a.startTime)}${a.note ? " — " + esc(a.note) : ""}">` +
+          abilityIcon(v, job) +
+          `<span class="nm">${esc(v.name)}${a.note ? '<br /><span class="nt">' + esc(a.note) + "</span>" : ""}</span>` +
+        `</div>`);
+    });
   }
   return html.join("");
 }
@@ -885,7 +1365,9 @@ function paintPalette() {
     const v = view(id, job);
     if (q && v.name.toLowerCase().indexOf(q) === -1 && id.indexOf(q) === -1) continue;
     const bits = [];
-    if (v.mit) bits.push(v.mit + "%");
+    const ml = mitLabel(v);
+    if (ml) bits.push(ml);
+    if (v.type === "shield") bits.push("shield");
     if (v.dur) bits.push(v.dur + "s");
     if (v.cd) bits.push("↻ " + v.cd + "s" + (v.charges > 1 ? " ×" + v.charges : ""));
     html.push(
@@ -903,14 +1385,22 @@ function paintPalette() {
 //  Rendu — editeur de combat
 // ======================================================================
 function numCell(val, onto, key, step) {
-  return `<input class="t" type="number" step="${step || 0.1}" value="${val}" data-e="${onto}" data-k="${key}" />`;
+  const attrs = `data-e="${onto}" data-k="${key}"`;
+  return S.tfmt === "ms"
+    ? `<input class="t" type="text" inputmode="decimal" value="${toClock(val)}" ${attrs} />`
+    : `<input class="t" type="number" step="${step || 0.1}" value="${val}" ${attrs} />`;
 }
 
 function paintFight() {
   const f = S.doc.fight;
+  const clock = S.tfmt === "ms";
   $("fName").value = f.name || "";
   $("fShort").value = f.shortName || "";
-  $("fDur").value = f.duration;
+  for (const b of $("tfmt").querySelectorAll("button")) b.classList.toggle("on", b.dataset.tf === S.tfmt);
+  $("fDurLab").textContent = clock ? "Duration (m:ss)" : "Duration (s)";
+  const dur = $("fDur");
+  dur.type = clock ? "text" : "number";
+  dur.value = clock ? toClock(f.duration) : f.duration;
 
   $("tPhases").innerHTML =
     "<tr><th>Name</th><th>From</th><th>To</th><th></th></tr>" +
@@ -930,11 +1420,12 @@ function paintFight() {
       `<td><button class="x" data-del="me:${i}">✕</button></td></tr>`).join("") ||
     '<tr><td colspan="4" class="muted">No mechanics.</td></tr>';
 
-  $("tCasts").innerHTML =
-    "<tr><th>Name</th><th>Cast</th><th>Apply</th><th>Type</th><th></th></tr>" +
-    f.bossActions.map((b, i) => {
-      const ct = Number(b.castTime) || 0;
-      return `<tr${S.pickCast === b.id ? ' class="sel"' : ""}>` +
+  const rows = [];
+  f.bossActions.forEach((b, i) => {
+    const ct = Number(b.castTime) || 0;
+    const open = !!S.openBa[b.id];
+    rows.push(
+      `<tr${S.pickCast === b.id ? ' class="sel"' : ""}>` +
         `<td><input value="${esc(b.name || "")}" data-e="ba:${i}" data-k="name" /></td>` +
         `<td>${numCell(round1((Number(b.time) || 0) - ct), "ba:" + i, "castStart", 0.1)}</td>` +
         `<td>${numCell(round1(Number(b.time) || 0), "ba:" + i, "time", 0.1)}</td>` +
@@ -942,9 +1433,30 @@ function paintFight() {
           ["raid", "tb", "enrage"].map((t) =>
             `<option value="${t}"${(b.type || "raid") === t ? " selected" : ""}>${t}</option>`).join("") +
         `</select></td>` +
-        `<td><button class="x" data-del="ba:${i}">✕</button></td></tr>`;
-    }).join("") ||
-    '<tr><td colspan="5" class="muted">No boss casts yet.</td></tr>';
+        `<td><button class="x more${open ? " on" : ""}" data-more="${esc(b.id)}" ` +
+            `title="Damage type and amount">${open ? "−" : "+"}</button></td>` +
+        `<td><button class="x" data-del="ba:${i}">✕</button></td></tr>`);
+
+    // La fiche se deplie sous la ligne, a cote des temps qu'elle complete.
+    if (!open) return;
+    const dt = String(b.damageType || "");
+    rows.push(
+      `<tr class="dmgrow"><td colspan="6"><div class="dmgbox">` +
+        `<div class="dt">` +
+          ["magical", "physical", "special"].map((k) =>
+            `<label class="${dt === k ? "on" : ""}">` +
+              `<input type="radio" name="dt-${esc(b.id)}" value="${k}"${dt === k ? " checked" : ""} ` +
+              `data-e="ba:${i}" data-k="damageType" />${k}</label>`).join("") +
+        `</div>` +
+        `<label class="amt">Damage` +
+          `<input type="number" min="0" step="1000" data-e="ba:${i}" data-k="damage" ` +
+          `placeholder="unhit party damage" value="${b.damage === undefined ? "" : Number(b.damage)}" /></label>` +
+      `</div></td></tr>`);
+  });
+
+  $("tCasts").innerHTML =
+    "<tr><th>Name</th><th>Cast</th><th>Apply</th><th>Type</th><th></th><th></th></tr>" +
+    (rows.join("") || '<tr><td colspan="6" class="muted">No boss casts yet.</td></tr>');
 }
 
 // ======================================================================
@@ -1027,7 +1539,7 @@ function check() {
 function label(a) {
   const p = playerOf(a.playerId);
   const v = view(a.abilityId, p ? p.job : "");
-  return `${p ? labelOf(p) : a.playerId} · ${v.name} at ${fmt(a.startTime)}`;
+  return `${p ? whoOf(p) : a.playerId} · ${v.name} at ${fmt(a.startTime)}`;
 }
 
 function paintIssues() {
@@ -1054,15 +1566,18 @@ function paintInspector() {
   const p = playerOf(a.playerId);
   const v = view(a.abilityId, p ? p.job : "");
   const bits = [];
-  if (v.mit) bits.push(v.mit + "% mit");
+  const ml = mitLabel(v);
+  if (ml) bits.push(ml + " mit");
+  if (v.type && v.type !== "mitigation") bits.push(v.type);
+  if (v.scope) bits.push(v.scope);
   if (v.dur) bits.push(v.dur + " s");
-  if (v.cd) bits.push("recast " + v.cd + " s");
+  if (v.cd) bits.push("recast " + v.cd + " s" + (v.charges > 1 ? " ×" + v.charges : ""));
 
   el.hidden = false;
   el.innerHTML =
     `<div class="hd">${abilityIcon(v, p ? p.job : "")}` +
       `<div><div class="nm">${esc(v.name)}</div>` +
-      `<div class="sub">${esc(p ? labelOf(p) : "")} · ${esc(bits.join(" · "))}</div></div></div>` +
+      `<div class="sub">${esc(p ? whoOf(p) : "")} · ${esc(bits.join(" · "))}</div></div></div>` +
     `<div class="r"><label for="iSt">Start</label>` +
       `<input id="iSt" type="number" step="0.1" value="${round1(a.startTime)}" /></div>` +
     `<div class="r"><label for="iNo">Note</label>` +
@@ -1132,16 +1647,26 @@ function timeAt(clientY) {
   return tOf(clientY - r.top);
 }
 
-function startDrag(e, kind, abilityId, from) {
-  const job = from ? jobOf(from.playerId) : jobOf(S.sel);
-  const v = view(abilityId, job);
+function startDrag(e, kind, ref, from) {
   const g = document.createElement("div");
   g.id = "ghost";
-  g.innerHTML = abilityIcon(v, job) + `<span>${esc(v.name)}</span><span class="tm">0:00</span>`;
+
+  let grab = from ? e.clientY - from.top : 10;
+  if (kind === "cast") {
+    // Pour un cast on mesure la prise depuis l'instant d'APPLICATION, pas depuis
+    // le haut de l'etiquette : le temps lu au relachement est alors directement
+    // la nouvelle application, sans decalage a rattraper.
+    const b = castOf(ref);
+    grab = e.clientY - ($("lanes").getBoundingClientRect().top + yOf(Number(b && b.time) || 0));
+    g.innerHTML = `<span>${esc((b && b.name) || "cast")}</span><span class="tm">0:00</span>`;
+  } else {
+    const job = from ? jobOf(from.playerId) : jobOf(S.sel);
+    const v = view(ref, job);
+    g.innerHTML = abilityIcon(v, job) + `<span>${esc(v.name)}</span><span class="tm">0:00</span>`;
+  }
   document.body.appendChild(g);
 
-  drag = { kind, abilityId, from, ghost: g, ok: false, t: 0, pid: null,
-           grab: from ? (e.clientY - from.top) : 10 };
+  drag = { kind, ref, from, ghost: g, ok: false, t: 0, tgt: null, grab };
   moveDrag(e);
   window.addEventListener("pointermove", moveDrag);
   window.addEventListener("pointerup", endDrag);
@@ -1153,13 +1678,24 @@ function moveDrag(e) {
   drag.ghost.style.left = (e.clientX + 14) + "px";
   drag.ghost.style.top = (e.clientY + 12) + "px";
 
-  const lane = laneUnder(e.clientX, e.clientY);
   const raw = timeAt(e.clientY - drag.grab);
-  const t = snapTime(raw, e.altKey);
-  drag.t = t;
-  drag.pid = lane ? lane.dataset.pid : null;
-  drag.ok = !!lane;
+  if (drag.kind === "cast") {
+    drag.t = snapTime(raw, e.altKey, drag.ref);
+    drag.ok = true;
+  } else {
+    const lane = laneUnder(e.clientX, e.clientY);
+    drag.t = snapTime(raw, e.altKey);
+    drag.tgt = lane ? { pid: lane.dataset.pid || "", slot: lane.dataset.slot || "",
+                        job: lane.dataset.job || "" } : null;
+    // Avec des sous-colonnes par job, lacher une capacite de mage blanc dans la
+    // colonne astromancien est a un centimetre pres : on refuse plutot que de
+    // fabriquer une assignation que personne ne pourra lancer.
+    const job = drag.tgt ? (drag.tgt.job || jobOf(drag.tgt.pid)) : "";
+    drag.ok = !!drag.tgt && !!(drag.tgt.pid || (drag.tgt.slot && drag.tgt.job))
+           && okForJob(drag.ref, job);
+  }
 
+  const t = drag.t;
   drag.ghost.querySelector(".tm").textContent = fmt(t) + (t % 1 ? "." + Math.round((t % 1) * 10) : "");
   drag.ghost.style.borderColor = drag.ok ? "var(--accent)" : "var(--bad)";
 
@@ -1179,20 +1715,38 @@ function endDrag(e) {
   const d = drag;
   drag = null;
   d.ghost.remove();
-  if (!d.ok || !d.pid) return;
+  if (!d.ok) return;
 
+  if (d.kind === "cast") {
+    const b = castOf(d.ref);
+    if (!b) return;
+    const dt = round1(d.t - (Number(b.time) || 0));
+    if (Math.abs(dt) < 0.05) return;
+    snapshot();
+    b.time = round1((Number(b.time) || 0) + dt);
+    // `hits` porte des instants absolus : les laisser sur place decrocherait
+    // les impacts de leur propre cast.
+    if (Array.isArray(b.hits)) b.hits = b.hits.map((x) => round1((Number(x) || 0) + dt));
+    paintAll(); save();
+    toast(`${b.name || "Cast"} moved to ${fmt(b.time)}.`);
+    return;
+  }
+
+  if (!d.tgt) return;
   snapshot();
+  const pid = d.tgt.pid || ensurePlayer(d.tgt.slot, d.tgt.job);
   if (d.kind === "new") {
-    const a = { id: newId(d.pid), playerId: d.pid, abilityId: d.abilityId, startTime: d.t };
+    const a = { id: newId(pid), playerId: pid, abilityId: d.ref, startTime: d.t };
     S.doc.assignments.push(a);
     S.pick = a.id;
   } else {
     const a = assignOf(d.from.id);
     if (!a) return;
     a.startTime = d.t;
-    a.playerId = d.pid;
+    a.playerId = pid;
     S.pick = a.id;
   }
+  S.sel = pid;
   paintAll(); save();
 }
 
@@ -1236,11 +1790,17 @@ function extractCode(raw) {
 const ROLE_RANK = { tank: 0, healer: 1, melee: 2, ranged: 3, caster: 4 };
 
 function adoptPlayers(players) {
-  const used = new Set();
+  const used = new Set();    // emplacements simples, un poste et pas deux
+  const taken = new Set();   // emplacements multiples : un poste par job
   const out = players.map((p) => {
     const job = String(p.job || "").toUpperCase();
-    const slot = SLOTS.find((s) => !used.has(s.key) && (s.jobs.indexOf(job) !== -1 || s.role === job));
-    if (slot) used.add(slot.key);
+    const slot = SLOTS.find((s) => {
+      if (s.jobs.indexOf(job) === -1 && s.role !== job) return false;
+      // Un groupe accueille plusieurs postes tant que leurs jobs different :
+      // c'est ce qui met le mage blanc et l'astromancien dans la meme colonne.
+      return s.multi ? !taken.has(s.key + "|" + job) : !used.has(s.key);
+    });
+    if (slot) { if (slot.multi) taken.add(slot.key + "|" + job); else used.add(slot.key); }
     const o = { id: p.id, job: job || "EXTRAS", _slot: slot ? slot.key : null };
     if (p.name) o.name = p.name;
     return o;
@@ -1364,6 +1924,9 @@ function planToDoc() {
     return r;
   };
   const f = S.doc.fight;
+  // Les colonnes de job nees d'un simple clic et restees vides ne partent pas :
+  // elles apparaitraient dans le selecteur de poste du prompteur pour rien.
+  const kept = S.doc.players.filter((p) => !p._auto || countOf(p.id) > 0);
   return {
     format: "mitigoke-plan/1",
     title: S.doc.title || "Plan",
@@ -1376,9 +1939,10 @@ function planToDoc() {
       duration: f.duration || 0,
       phases: f.phases.map((p) => keep(p, ["name", "startTime", "endTime"])),
       mechanics: f.mechanics.map((m) => keep(m, ["id", "name", "startTime", "endTime"])),
-      bossActions: f.bossActions.map((b) => keep(b, ["id", "name", "type", "time", "castTime", "hits"])),
+      bossActions: f.bossActions.map((b) =>
+        keep(b, ["id", "name", "type", "time", "castTime", "hits", "damageType", "damage"])),
     },
-    players: S.doc.players.map((p) => keep(p, ["id", "job", "name"])),
+    players: kept.map((p) => keep(p, ["id", "job", "name"])),
     assignments: S.doc.assignments.slice()
       .sort((a, b) => a.startTime - b.startTime || a.playerId.localeCompare(b.playerId))
       .map((a) => keep(a, ["id", "playerId", "abilityId", "startTime", "note"])),
@@ -1495,18 +2059,81 @@ function bind() {
 
   // -- en-tetes de colonne
   $("head").addEventListener("click", (e) => {
+    if (e.target.closest("#btnLock")) {
+      S.lockBoss = !S.lockBoss;
+      saveView(); paintHead(); paintLanes();
+      toast(S.lockBoss ? "Boss casts pinned."
+                       : "Boss casts unlocked — drag one to move it, its hits follow.");
+      return;
+    }
+    const add = e.target.closest("[data-add]");
+    if (add) {
+      const k = add.dataset.add;
+      if (S.addOpen[k]) delete S.addOpen[k]; else S.addOpen[k] = true;
+      paintHead();
+      return;
+    }
+    const exp = e.target.closest("[data-exp]");
+    if (exp) {
+      const k = exp.dataset.exp;
+      if (S.merged[k]) delete S.merged[k]; else S.merged[k] = true;
+      saveView(); paintHead(); paintLanes();
+      return;
+    }
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;  // gere par `change`
+    if (e.target.closest(".isob")) return;   // la case d'isolation aussi : elle bascule seule
+    const sub = e.target.closest(".gsub");
+    if (sub) { selectPid(sub.dataset.pid || ensurePlayer(sub.dataset.slot, sub.dataset.job)); return; }
     const h = e.target.closest(".colh");
-    if (!h || e.target.tagName === "SELECT") return;
-    S.sel = S.sel === h.dataset.pid ? null : h.dataset.pid;
-    paintHead(); paintLanes(); paintPalette();
-    showPane("pal");
+    if (!h) return;
+    if (h.dataset.grp) { selectGroup(h.dataset.grp); return; }
+    selectPid(h.dataset.pid);
   });
   $("head").addEventListener("change", (e) => {
+    const grp = e.target.dataset.jv;
+    if (grp) {
+      (S.jv[grp] = S.jv[grp] || {})[e.target.value] = e.target.checked;
+      saveView(); paintHead(); paintLanes();
+      return;
+    }
     const pid = e.target.dataset.job;
     if (!pid) return;
     snapshot();
     playerOf(pid).job = e.target.value;
     paintAll(); save();
+  });
+
+  // -- redimensionnement des colonnes
+  // Ecriture directe des styles pendant le geste : repeindre 660 blocs a chaque
+  // pixel de souris serait injouable, et inutile — seule la largeur change.
+  $("head").addEventListener("pointerdown", (e) => {
+    const grip = e.target.closest("[data-rz]");
+    if (!grip) return;
+    e.preventDefault(); e.stopPropagation();
+    const key = grip.dataset.rz;
+    const cell = grip.closest("[data-col]");
+    const n = Math.max(1, Number(cell && cell.dataset.n) || 1);
+    const x0 = e.clientX, w0 = widthOf(key);
+    grip.classList.add("on");
+    const mv = (ev) => {
+      const w = Math.max(48, Math.min(420, Math.round(w0 + (ev.clientX - x0) / n)));
+      S.wid[key] = w;
+      applyWidth(key, w, n);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", mv);
+      window.removeEventListener("pointerup", up);
+      grip.classList.remove("on");
+      saveView(); paintHead(); paintLanes();
+    };
+    window.addEventListener("pointermove", mv);
+    window.addEventListener("pointerup", up);
+  });
+  $("head").addEventListener("dblclick", (e) => {
+    const grip = e.target.closest("[data-rz]");
+    if (!grip) return;
+    delete S.wid[grip.dataset.rz];
+    saveView(); paintHead(); paintLanes();
   });
 
   // -- palette : debut d'un glisser
@@ -1535,17 +2162,42 @@ function bind() {
       startDrag(e, "move", a.abilityId, { id: a.id, playerId: a.playerId, top });
       return;
     }
+    const mk = e.target.closest(".mk");
+    if (mk) {
+      const a = assignOf(mk.dataset.a);
+      if (a) { S.pick = a.id; S.sel = a.playerId;
+               paintHead(); paintLanes(); paintPalette(); paintInspector(); }
+      return;
+    }
     const cast = e.target.closest(".cast");
-    if (cast) { S.pickCast = cast.dataset.cast; S.pickMech = null; paintLanes(); paintFight(); showPane("fight"); return; }
+    if (cast) {
+      S.pickCast = cast.dataset.cast; S.pickMech = null;
+      const movable = !S.lockBoss;
+      if (movable) e.preventDefault();
+      paintLanes(); paintFight(); showPane("fight");
+      if (movable) startDrag(e, "cast", cast.dataset.cast, null);
+      return;
+    }
     const mech = e.target.closest(".mec");
     if (mech) { S.pickMech = mech.dataset.mech; S.pickCast = null; paintLanes(); paintFight(); showPane("fight"); return; }
     const lane = e.target.closest(".lane.job");
-    if (lane) { S.pick = null; S.sel = lane.dataset.pid; paintHead(); paintLanes(); paintPalette(); paintInspector(); }
+    if (lane) {
+      S.pick = null;
+      S.sel = lane.dataset.pid || ensurePlayer(lane.dataset.slot, lane.dataset.job);
+      paintHead(); paintLanes(); paintPalette(); paintInspector();
+    }
   });
 
   // -- editeur de combat
   $("pane-fight").addEventListener("change", onFightEdit);
   $("pane-fight").addEventListener("click", (e) => {
+    const more = e.target.closest("[data-more]");
+    if (more) {
+      const id = more.dataset.more;
+      if (S.openBa[id]) delete S.openBa[id]; else S.openBa[id] = true;
+      paintFight();
+      return;
+    }
     const del = e.target.closest("[data-del]");
     if (del) { removeFightRow(del.dataset.del); return; }
   });
@@ -1553,9 +2205,15 @@ function bind() {
   $("fShort").onchange = (e) => { snapshot(); S.doc.fight.shortName = e.target.value; save(); };
   $("fDur").onchange = (e) => {
     snapshot();
-    S.doc.fight.duration = Math.max(30, Number(e.target.value) || 600);
+    S.doc.fight.duration = Math.max(30, tval(e.target) || 600);
     paintAll(); save();
   };
+  $("tfmt").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tf]");
+    if (!b || b.dataset.tf === S.tfmt) return;
+    S.tfmt = b.dataset.tf;
+    saveView(); paintFight();
+  });
   $("addPhase").onclick = () => {
     snapshot();
     const t = Math.round(tOf($("board").scrollTop));
@@ -1632,6 +2290,27 @@ function scrollToTime(t) {
   board.scrollTop = Math.max(0, yOf(t) - 160);
 }
 
+function selectPid(pid) {
+  if (!pid) return;
+  S.sel = S.sel === pid ? null : pid;
+  S.pick = null;
+  paintHead(); paintLanes(); paintPalette(); paintInspector();
+  showPane("pal");
+}
+
+/**
+ * Cliquer le titre d'un groupe. Deplie, il n'y a rien a selectionner : ce sont
+ * les sous-colonnes qui portent les jobs. Fusionne sur plusieurs jobs, c'est
+ * ambigu — on le redeplie, ce qui est de toute facon ce qu'on voulait.
+ */
+function selectGroup(key) {
+  const c = columns().find((x) => x.kind === "group" && x.key === key);
+  if (!c || !c.merged) return;
+  const tgt = mergedTarget(c);
+  if (!tgt) { delete S.merged[key]; saveView(); paintHead(); paintLanes(); return; }
+  selectPid(tgt.pid || ensurePlayer(key, tgt.job));
+}
+
 function showPane(name) {
   for (const x of $("tabs").querySelectorAll("button")) x.classList.toggle("on", x.dataset.pane === name);
   for (const p of document.querySelectorAll(".pane")) p.classList.toggle("on", p.id === "pane-" + name);
@@ -1647,19 +2326,25 @@ function onFightEdit(e) {
   const f = S.doc.fight;
   if (what === "ph") {
     const p = f.phases[i];
-    p[k] = k === "name" ? e.target.value : Number(e.target.value) || 0;
+    p[k] = k === "name" ? e.target.value : tval(e.target);
   } else if (what === "me") {
     const m = f.mechanics[i];
-    m[k] = k === "name" ? e.target.value : Number(e.target.value) || 0;
+    m[k] = k === "name" ? e.target.value : tval(e.target);
   } else if (what === "ba") {
     const b = f.bossActions[i];
     if (k === "name") b.name = e.target.value;
     else if (k === "type") b.type = e.target.value;
     else if (k === "time") {
       // On garde l'incantation de la meme longueur en deplacant l'application.
-      b.time = Number(e.target.value) || 0;
+      b.time = tval(e.target);
     } else if (k === "castStart") {
-      b.castTime = round1(Math.max(0, (Number(b.time) || 0) - (Number(e.target.value) || 0)));
+      b.castTime = round1(Math.max(0, (Number(b.time) || 0) - tval(e.target)));
+    } else if (k === "damageType") {
+      if (e.target.value) b.damageType = e.target.value; else delete b.damageType;
+    } else if (k === "damage") {
+      const n = Number(e.target.value);
+      if (e.target.value === "" || !isFinite(n) || n <= 0) delete b.damage;
+      else b.damage = Math.round(n);
     }
     if (!b.castTime) delete b.castTime;
   }
@@ -1685,15 +2370,22 @@ function removeFightRow(key) {
         || (navigator.language || "en").slice(0, 2).toLowerCase();
   if (["en", "fr", "de", "ja"].indexOf(S.lang) === -1) S.lang = "en";
   $("lang").value = S.lang;
+  loadView();
 
   // mapping.json est un fichier statique : Apache le sert sans faire tourner PHP.
   const map = await fetch("../mapping.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
   S.map = { jobs: (map && map.jobs) || {}, abilities: (map && map.abilities) || {} };
   if (!map) toast("mapping.json is unreachable — names and icons will be missing.", true);
 
-  // Le catalogue amont n'apporte que les recasts et les charges. S'il a disparu,
-  // le planificateur marche quand meme, sans les avertissements de recharge.
-  S.cat = await api("abilities=1").catch(() => ({}));
+  // mapping.json porte desormais recast, charges, nature et portee : le
+  // catalogue amont n'est plus interroge du tout dans le cas courant. On ne s'y
+  // rabat que devant une table anterieure a l'enrichissement, sinon les
+  // avertissements de recharge disparaitraient sans un mot.
+  const enriched = Object.values(S.map.abilities).some((a) => a.cd || a.type);
+  S.cat = enriched ? {} : await api("abilities=1").catch(() => ({}));
+  if (!enriched && Object.keys(S.map.abilities).length) {
+    toast("Ability table predates the planner fields — falling back to the upstream catalogue.");
+  }
 
   const saved = localStorage.getItem(LS_KEY);
   if (saved) {
