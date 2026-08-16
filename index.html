@@ -9,7 +9,7 @@
 <meta name="referrer" content="no-referrer" />
 <meta name="robots" content="noai, noimageai" />
 <meta name="theme-color" content="#0a0e13" />
-<title>Mitigoke — mitigation prompter</title>
+<title>Mitigoke — mitigation prompter 0.0.6</title>
 <style>
   :root {
     --bg: #0a0e13;
@@ -244,6 +244,16 @@
   .phase-next:disabled { color: var(--past); border-color: var(--line); background: none; }
 
   /* ---- Equipe ---- */
+  /* Salon perdu : visible sans etre alarmant. L'horloge continue de tourner
+     correctement, ce n'est pas une panne du prompteur. */
+  .roomlost { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+              margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+              background: #2a1f16; border: 1px solid #6b4a2a;
+              color: #ffcf9a; font-size: .82rem; }
+  .roomlost > div { flex: 1 1 240px; }
+  .roomlost button { flex: 0 0 auto; background: #3a2a1c; border-color: #6b4a2a; color: #ffcf9a; }
+  .roomlost button:hover { background: #4a3626; }
+  .team-state.lost b { color: var(--tb); }
   .team-state { font-size: .85rem; color: var(--muted); }
   .team-state b { color: var(--soon); }
   .team-state.follow b { color: var(--accent); }
@@ -343,7 +353,7 @@
   <h1><button type="button" id="home" title="Back to the loading screen">MITIGOKE</button></h1>
   <div class="sub">
     Load a plan shared from <a href="https://xivmit.app" target="_blank" rel="noopener noreferrer">xivmit.app</a>,
-    pick your slot, and follow your cues live.<span class="ver">v0.0.5</span>
+    pick your slot, and follow your cues live.<span class="ver">v0.0.6</span>
   </div>
 
   <!-- ============ Chargement du plan ============ -->
@@ -430,6 +440,10 @@
         <button id="copyLink">Copy</button>
       </div>
       <div class="hint" id="teamHint"></div>
+      <div class="roomlost" id="roomLost" hidden>
+        <div id="roomLostText"></div>
+        <button type="button" id="goSolo">Continue on my own</button>
+      </div>
       <div id="roster" hidden></div>
       <div class="row tight" style="margin-top:10px">
         <button id="leaveTeam">Leave room</button>
@@ -524,6 +538,13 @@ const S = {
   leaderKey: null,   // non nul si on est le chef de groupe
   anchor: 0,         // ecart mesure : epoch serveur = performance.now() + anchor
   synced: false,
+  roomLost: null,    // null | "gone" (le serveur dit que le salon n'existe plus) | "net"
+  roomFails: 0,      // sondages consecutifs qui n'ont pas abouti
+
+  // --- bips programmes a l'avance ---
+  sched: new Set(),  // cles des bips deja programmes sur l'horloge audio
+  schedNodes: [],    // oscillateurs en attente, pour pouvoir les annuler
+  audioSched: false, // vrai si la programmation marche : ring() se tait alors
 };
 
 const $ = (id) => document.getElementById(id);
@@ -678,6 +699,18 @@ async function loadPlan(code, force) {
 // exactement ce que le prompteur sait deja lire — aucun parseur a ajouter, et
 // ca reste modifiable a la main. Voir plan-template.json.
 
+// PLAN-IO v1 — validatePlanDoc / keep / planToDoc / planToText / exportPlan.
+// Copie canonique recopiee a l'identique dans index.html ET plan_creator/index.html
+// (0.0.6, 15 aout 2026) : les deux pages dupliquaient ces fonctions et avaient
+// diverge sur neuf points (voir TODO.md, tache 1). Toute modification de l'une de
+// ces fonctions doit etre reportee dans l'autre fichier, avec une ligne ici.
+//
+// Journal :
+//   2026-08-15  Unification initiale. keep() supprime desormais les chaines vides
+//               comme le faisait deja l'editeur ; bossActions garde damageType et
+//               damage ; tri des assignments avec repli sur playerId ; author
+//               preserve ; limite de 4 Mo commune.
+
 /** Refuse tot et avec un message precis : ces fichiers s'ecrivent a la main. */
 function validatePlanDoc(d) {
   const bad = (m) => { throw new Error(m); };
@@ -740,11 +773,25 @@ async function loadLocalPlan(doc, filename) {
   const code = localCode(doc);
   S.plan = {
     players: doc.players,
-    assignments: doc.assignments.map((a, i) => Object.assign({ id: "a" + i }, a)),
+    // Genere les ids manquants sans jamais toucher ceux deja presents : ce sont
+    // eux que S.fired (les bips deja sonnes) et le suivi de la file utilisent.
+    assignments: doc.assignments.map((a, i) => (a.id ? a : Object.assign({ id: "a" + i }, a))),
     fightId: doc.fight.id || "local",
     title: doc.title || filename || "Local plan",
+    author: doc.author || "",
   };
   S.fight = Object.assign({ name: "Local fight", phases: [], mechanics: [], bossActions: [] }, doc.fight);
+  // PLAN-IO v1 : une duree absente ou non numerique prend un defaut calcule,
+  // jamais une duree explicite (y compris 0, qui reste une valeur voulue).
+  if (typeof S.fight.duration !== "number" || !isFinite(S.fight.duration)) {
+    S.fight.duration = Math.max(
+      600,
+      Math.ceil(Math.max(0, ...S.fight.bossActions.map((b) => Number(b.time) || 0),
+                            ...S.plan.assignments.map((a) => Number(a.startTime) || 0)) / 60) * 60);
+  }
+  let mi = 0, bi = 0;
+  S.fight.mechanics.forEach((m) => { if (!m.id) m.id = "m" + mi++; });
+  S.fight.bossActions.forEach((b) => { if (!b.id) b.id = "ba" + bi++; });
   S.code = code;
   S.local = true;
 
@@ -780,16 +827,19 @@ async function loadLocalPlan(doc, filename) {
  * assignations a la main le jour ou l'amont ferme n'est pas realiste, les figer
  * pendant qu'il repond l'est. Tout est deja en memoire, il n'y a rien a redemander.
  */
+// PLAN-IO v1 : voir plan_creator/index.html pour le meme keep().
+function keep(o, ks) {
+  const r = {};
+  for (const k of ks) if (o[k] !== undefined && o[k] !== null && o[k] !== "") r[k] = o[k];
+  return r;
+}
+
 function planToDoc() {
-  const keep = (o, ks) => {
-    const r = {};
-    for (const k of ks) if (o[k] !== undefined && o[k] !== null) r[k] = o[k];
-    return r;
-  };
   const f = S.fight;
   return {
     format: "mitigoke-plan/1",
     title: S.plan.title || S.code || "Plan",
+    author: S.plan.author || "",
     updated: new Date().toISOString().slice(0, 10),
     _source: (S.local ? "Re-exported from a local plan file" : "Exported from xivmit.app plan " + S.code)
            + " on " + new Date().toISOString().slice(0, 10)
@@ -801,12 +851,15 @@ function planToDoc() {
       duration: f.duration || 0,
       phases: (f.phases || []).map((p) => keep(p, ["name", "startTime", "endTime"])),
       mechanics: (f.mechanics || []).map((m) => keep(m, ["id", "name", "startTime", "endTime"])),
-      bossActions: (f.bossActions || []).map((b) => keep(b, ["id", "name", "type", "time", "castTime", "hits"])),
+      // damageType/damage : champs optionnels ecrits par le plan creator. Les
+      // preserver evite de les perdre a chaque aller-retour par le prompteur.
+      bossActions: (f.bossActions || []).map((b) =>
+        keep(b, ["id", "name", "type", "time", "castTime", "hits", "damageType", "damage"])),
     },
     players: S.plan.players.map((p) => keep(p, ["id", "job", "name"])),
     assignments: S.plan.assignments
       .slice()
-      .sort((a, b) => a.startTime - b.startTime)
+      .sort((a, b) => a.startTime - b.startTime || a.playerId.localeCompare(b.playerId))
       .map((a) => keep(a, ["id", "playerId", "abilityId", "startTime", "note"])),
     // Volontairement vide : noms et icones viennent de mapping.json, qui se
     // corrige depuis admin/. Les figer ici les rendrait prioritaires, donc
@@ -826,6 +879,7 @@ function planToText(d) {
     "{",
     '  "format": ' + JSON.stringify(d.format) + ",",
     '  "title": ' + JSON.stringify(d.title) + ",",
+    d.author ? '  "author": ' + JSON.stringify(d.author) + "," : null,
     '  "updated": ' + JSON.stringify(d.updated) + ",",
     '  "_source": ' + JSON.stringify(d._source) + ",",
     "",
@@ -849,7 +903,7 @@ function planToText(d) {
     '  "abilities": {}',
     "}",
     "",
-  ].join("\n");
+  ].filter((l) => l !== null).join("\n");
 }
 
 function exportPlan() {
@@ -997,35 +1051,123 @@ function buildCues() {
 
   S.fired.clear();
   S.chainSig = "";
+  // Les heures de declenchement viennent de changer : les bips programmes sur
+  // les anciennes n'ont plus lieu d'etre.
+  clearSchedule();
   paintQueue();
 }
 
 // ------------------------------------------------------------------- prompteur
-function beep(freq, level, len) {
-  if (!$("sound").checked) return;
+/**
+ * Le contexte audio, cree paresseusement et REVEILLE a chaque appel.
+ *
+ * Un contexte cree hors d'un geste utilisateur nait « suspended » : les
+ * navigateurs n'accordent le son qu'apres un clic ou une touche. On appelle donc
+ * ceci depuis Depart et depuis « Open prompter », qui sont des gestes.
+ */
+function audioCtx() {
   try {
     const ac = beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)());
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(level, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + len);
-    o.connect(g).connect(ac.destination);
-    o.start();
-    o.stop(ac.currentTime + len + 0.02);
-  } catch (_) { /* audio indisponible : sans importance */ }
+    if (ac.state === "suspended") ac.resume();
+    return ac;
+  } catch (_) {
+    return null;   // audio indisponible : sans importance, on retombe sur le visuel
+  }
+}
+
+/** Une note a un instant DONNE de l'horloge audio, pas forcement maintenant. */
+function tone(ac, when, freq, level, len) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(level, when);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + len);
+  o.connect(g).connect(ac.destination);
+  o.start(when);
+  o.stop(when + len + 0.02);
+  // Une note jouee n'a plus a etre retenue. `onended` est le seul signal fiable :
+  // `playbackState` n'existe plus dans l'API moderne, et un filtre fonde dessus
+  // ne supprimait jamais rien — le tableau grossissait tout un combat.
+  o.onended = () => {
+    const i = S.schedNodes.indexOf(o);
+    if (i !== -1) S.schedNodes.splice(i, 1);
+    try { o.disconnect(); g.disconnect(); } catch (_) { /* deja detache */ }
+  };
+  return o;
+}
+
+function beep(freq, level, len) {
+  if (!$("sound").checked) return;
+  const ac = audioCtx();
+  if (!ac) return;
+  try { tone(ac, ac.currentTime, freq, level, len); } catch (_) { /* sans importance */ }
 }
 
 // Deux bips graves et discrets a 2 s et 1 s, puis le bip d'action, plus aigu et
 // plus fort. On entend un decompte, on n'est pas surpris par le declenchement.
 const WARN_AT = [2, 1];
-const beepWarn = () => beep(440, 0.06, 0.09);
-const beepNow  = () => beep(880, 0.18, 0.18);
+const WARN_TONE = [440, 0.06, 0.09];
+const NOW_TONE  = [880, 0.18, 0.18];
+const beepWarn = () => beep(...WARN_TONE);
+const beepNow  = () => beep(...NOW_TONE);
 
 /**
- * Le declenchement sonore ne teste pas une egalite mais un franchissement, et
- * retient ce qui a deja sonne : dans un onglet bride ou l'on ne passe qu'une fois
- * par seconde, un bip cale sur un instant precis serait purement et simplement
- * saute.
+ * Bips PROGRAMMES A L'AVANCE sur l'horloge audio.
+ *
+ * C'est la reponse au bridage des minuteries : un onglet masque voit son
+ * setInterval retomber a 1 Hz, puis a 1/minute apres cinq minutes. L'horloge,
+ * elle, reste juste — elle est recalculee et jamais incrementee — mais un bip
+ * declenche par la boucle arrivait avec le retard de la boucle. Or c'est
+ * exactement dans ce cas qu'on ne regarde pas l'ecran et qu'on n'a plus que le
+ * son.
+ *
+ * Le fil audio, lui, n'est pas bride : une note programmee a un instant precis
+ * de `ac.currentTime` sonne a cet instant, meme si le JavaScript ne repasse
+ * qu'une fois par minute. On programme donc une fenetre d'avance et on la
+ * recharge a chaque passage.
+ */
+const SCHED_AHEAD = 75;   // s : au-dela d'une minute, pour survivre au bridage
+
+function clearSchedule() {
+  for (const o of S.schedNodes) {
+    try { o.stop(); o.disconnect(); } catch (_) { /* deja joue */ }
+  }
+  S.schedNodes = [];
+  S.sched.clear();
+}
+
+function scheduleBeeps() {
+  if (!S.playing || !$("sound").checked) { S.audioSched = false; return; }
+  const ac = audioCtx();
+  if (!ac || ac.state !== "running") { S.audioSched = false; return; }
+  S.audioSched = true;
+
+  const now = ac.currentTime;
+  const t = S.t;
+  for (const c of S.cues) {
+    const dt = c.t - t;
+    if (dt < 0) continue;
+    if (dt > SCHED_AHEAD) break;      // les cues sont triees : inutile d'aller plus loin
+    if (!c.noWarn) {
+      for (const lvl of WARN_AT) {
+        const k = c.id + ":" + lvl;
+        if (dt >= lvl && !S.sched.has(k)) {
+          S.sched.add(k);
+          S.schedNodes.push(tone(ac, now + dt - lvl, ...WARN_TONE));
+        }
+      }
+    }
+    if (!S.sched.has(c.id)) {
+      S.sched.add(c.id);
+      S.schedNodes.push(tone(ac, now + dt, ...NOW_TONE));
+    }
+  }
+}
+
+/**
+ * Repli reactif, employe uniquement quand la programmation n'a pas pu se faire
+ * (son coupe, contexte audio refuse). Il ne teste pas une egalite mais un
+ * FRANCHISSEMENT : dans un onglet bride, un bip cale sur un instant precis
+ * serait purement et simplement saute.
  */
 function ring(cue, dt) {
   let sounded = false;
@@ -1038,13 +1180,13 @@ function ring(cue, dt) {
         S.fired.add(k);
         // Si plusieurs seuils tombent d'un coup (onglet bride, saut d'horloge),
         // un seul son suffit.
-        if (!sounded) { beepWarn(); sounded = true; }
+        if (!sounded) { if (!S.audioSched) beepWarn(); sounded = true; }
       }
     }
   }
   if (dt <= 0 && !S.fired.has(cue.id)) {
     S.fired.add(cue.id);
-    beepNow();
+    if (!S.audioSched) beepNow();
   }
 }
 
@@ -1289,6 +1431,10 @@ function render() {
 
   paintActive(t);
   updateQueue(t);
+  // Recharge la fenetre de bips programmes. Bon marche : les cues sont triees,
+  // on s'arrete des qu'on sort de l'horizon, et les cles deja posees sont
+  // ignorees.
+  scheduleBeeps();
 }
 
 // Boucle d'affichage volontairement sur setInterval et non requestAnimationFrame :
@@ -1320,6 +1466,10 @@ function tick() {
 
 // --------------------------------------------------------------------- actions
 function startRun() {
+  // Depart vient d'un clic ou de la barre d'espace : c'est le geste utilisateur
+  // qui autorise le son. On en profite pour reveiller le contexte audio, sans
+  // quoi il resterait suspendu et les bips programmes ne sonneraient jamais.
+  audioCtx();
   if (S.room) { return leaderSet({ startIn: num("pre") }); }
   buildCues();
   S.t0 = performance.now();
@@ -1334,6 +1484,7 @@ function togglePause() {
     // ne fournit jamais d'horodatage, son horloge n'a pas autorite.
     return S.room.paused ? leaderSet({ startIn: -S.t }) : leaderSet({ pausedAt: S.t });
   }
+  clearSchedule();   // en pause, rien ne doit plus sonner tout seul
   if (!S.playing) {
     S.t0 = performance.now() - (S.t + num("pre")) * 1000;
     S.playing = true;
@@ -1358,6 +1509,7 @@ function setClock(target) {
   S.t = target;
   S.playing = true;
   S.fired.clear();
+  clearSchedule();   // l'horloge saute : les bips programmes visaient l'ancienne
   $("pause").disabled = false;
   $("pause").textContent = "Pause";
 }
@@ -1383,6 +1535,7 @@ function resetRun() {
   S.playing = false;
   S.t = -num("pre");
   S.fired.clear();
+  clearSchedule();
   $("pause").disabled = true;
   $("pause").textContent = "Pause";
   if (S.qNodes.length) $("queueBox").scrollTop = 0;
@@ -1436,7 +1589,35 @@ function applyRoom(r) {
   S.room = r;
   // Un changement de decalage commun doit se repercuter sur la file.
   if (S.cues.length && (!before || before.offset !== r.offset)) buildCues();
-  if (before && before.t0 !== r.t0) S.fired.clear();
+  // Depart, pause, reprise ou recalage de phase decides par le chef : l'horloge
+  // commune a bouge, les bips programmes sur l'ancienne ne valent plus rien.
+  if (before && (before.t0 !== r.t0 || before.paused !== r.paused)) {
+    S.fired.clear();
+    clearSchedule();
+  }
+  paintTeam();
+}
+
+/**
+ * Un salon disparait au bout de 12 h, ou parce qu'on l'a supprime. Jusqu'ici le
+ * suiveur continuait de sonder dans le vide sans jamais l'apprendre.
+ *
+ * Les deux cas n'ont pas la meme valeur et ne meritent pas le meme traitement :
+ *
+ *   « gone » — le serveur a REPONDU que ce salon n'existe plus. C'est une
+ *   certitude, on le dit tout de suite.
+ *   « net »  — la requete n'a pas abouti. On ne sait pas si c'est le reseau, le
+ *   serveur ou l'hebergeur, et un paquet perdu ne merite pas une alarme : on
+ *   laisse passer quelques sondages avant de parler.
+ *
+ * Dans les deux cas l'horloge CONTINUE sur le dernier etat connu, qui reste date
+ * par le serveur donc toujours juste. On informe, on n'interrompt pas un combat.
+ */
+const ROOM_NET_GRACE = 3;   // sondages rates d'affilee avant de signaler le reseau
+
+function setRoomLost(kind) {
+  if (S.roomLost === kind) return;
+  S.roomLost = kind;
   paintTeam();
 }
 
@@ -1446,9 +1627,47 @@ async function pollRoom() {
     // Seul le chef demande la liste des presents : pour les autres, le sondage
     // reste une lecture pure.
     const url = "sync.php?room=" + encodeURIComponent(S.room.room) + (isLeader() ? "&who=1" : "");
-    const r = await (await fetch(url)).json();
-    if (r && !r.error) applyRoom(r);
-  } catch (_) { /* coupure passagere : l'horloge locale continue toute seule */ }
+    const res = await fetch(url);
+    if (res.status === 404) return setRoomLost("gone");
+    const r = await res.json().catch(() => null);
+    if (r && !r.error) {
+      S.roomFails = 0;
+      if (S.roomLost) setRoomLost(null);
+      applyRoom(r);
+      return;
+    }
+    // Le serveur a repondu et nomme le probleme : salon inconnu, identifiant
+    // invalide. Aucune raison d'attendre pour le dire.
+    if (r && r.error) return setRoomLost("gone");
+    if (++S.roomFails >= ROOM_NET_GRACE) setRoomLost("net");
+  } catch (_) {
+    if (++S.roomFails >= ROOM_NET_GRACE) setRoomLost("net");
+  }
+}
+
+/**
+ * Quitte un salon mort en gardant l'horloge ou elle en est.
+ *
+ * Le decalage du salon est replie dans le decalage perso : sans ca, les heures
+ * de declenchement bougeraient au moment meme ou l'on reprend la main, ce qui
+ * est la derniere chose que l'on souhaite en plein combat.
+ */
+function continueSolo() {
+  if (!S.room) return;
+  const t = S.t;
+  const roomOff = S.room.offset || 0;
+  S.room = null;
+  S.leaderKey = null;
+  S.roomLost = null;
+  S.roomFails = 0;
+  if (roomOff) $("offset").value = String(Math.round((num("offset") + roomOff) * 10) / 10);
+  S.t0 = performance.now() - (t + num("pre")) * 1000;
+  S.playing = t > -num("pre");
+  const u = new URL(location.href);
+  u.searchParams.delete("team");
+  history.replaceState(null, "", u.toString());
+  if (S.cues.length) buildCues();
+  paintTeam();
 }
 
 /**
@@ -1517,6 +1736,11 @@ function paintTeam() {
 
   if (!live) {
     $("barTeam").textContent = "";
+    $("barTeam").className = "team-state";
+    $("barTeam").title = "";
+    // #roomLost est dans #teamLive, donc deja hors champ ; on le referme quand
+    // meme, sinon il reapparaitrait tel quel en rejoignant un autre salon.
+    $("roomLost").hidden = true;
     $("start").disabled = false;
     $("pause").disabled = !S.playing && S.t === -num("pre");
     $("reset").disabled = false;
@@ -1526,6 +1750,18 @@ function paintTeam() {
   const role = isLeader() ? "leader" : "follower";
   $("teamState").innerHTML = `Room <b>${esc(S.room.room)}</b> — ${esc(S.room.team)} · ${esc(role)}`;
   $("teamState").className = "team-state" + (isLeader() ? "" : " follow");
+
+  // Salon perdu : on dit lequel des deux cas s'est produit, parce qu'ils
+  // n'appellent pas la meme reaction — l'un est definitif, l'autre peut passer.
+  const lost = S.roomLost;
+  $("roomLost").hidden = !lost;
+  if (lost) {
+    $("roomLostText").textContent = lost === "gone"
+      ? "This room no longer exists — rooms are dropped after 12 hours. Your clock keeps "
+        + "running on its own, but the party leader's Start, Pause and Reset no longer reach you."
+      : "The server is not answering. Your clock keeps running on the last known state; "
+        + "if this is a passing network cut, sync resumes on its own.";
+  }
   $("shareBox").hidden = !isLeader();
   if (isLeader()) $("shareLink").value = shareUrl();
   $("teamHint").textContent = isLeader()
@@ -1535,7 +1771,15 @@ function paintTeam() {
     : "The clock is driven by the party leader. Your personal offset stays yours.";
 
   paintRoster();
-  $("barTeam").innerHTML = ` · <b>${esc(S.room.room)}</b>${isLeader() ? "" : " (follower)"}`;
+  // Pendant un combat, la barre du prompteur est le seul endroit qu'on regarde.
+  $("barTeam").innerHTML = lost
+    ? ` · <b>${esc(S.room.room)}</b> — ${lost === "gone" ? "room gone" : "sync lost"}`
+    : ` · <b>${esc(S.room.room)}</b>${isLeader() ? "" : " (follower)"}`;
+  $("barTeam").className = "team-state" + (lost ? " lost" : "");
+  $("barTeam").title = lost
+    ? (lost === "gone" ? "The room has expired. Your clock still runs, but it is yours alone."
+                       : "The server is not answering. Your clock still runs on the last known state.")
+    : "";
   // Un suiveur n'a pas la main sur le chrono : les boutons sont inertes.
   $("start").disabled = !isLeader();
   $("pause").disabled = !isLeader() || S.room.t0 === null;
@@ -1591,8 +1835,11 @@ async function joinRoom(room, keyFromUrl) {
 function leaveRoom() {
   S.room = null;
   S.leaderKey = null;
+  S.roomLost = null;
+  S.roomFails = 0;
   S.playing = false;
   S.t = -num("pre");
+  clearSchedule();
   paintTeam();
   const u = new URL(location.href);
   u.searchParams.delete("team");
@@ -1604,6 +1851,7 @@ $("load").addEventListener("click", () => loadPlan(extractCode($("link").value))
 $("link").addEventListener("keydown", (e) => { if (e.key === "Enter") loadPlan(extractCode($("link").value)); });
 
 $("go").addEventListener("click", () => {
+  audioCtx();   // geste utilisateur : c'est ici qu'on obtient le droit au son
   buildCues();
   const p = S.plan.players.find((p) => p.id === $("player").value);
   localStorage.setItem("mitigoke.player." + (S.code || ""), $("player").value);
@@ -1648,6 +1896,7 @@ $("refreshPlan").addEventListener("click", async () => {
 });
 $("invite").addEventListener("click", createRoom);
 $("leaveTeam").addEventListener("click", leaveRoom);
+$("goSolo").addEventListener("click", continueSolo);
 $("openFile").addEventListener("click", pickPlanFile);
 $("planFile").addEventListener("change", onPlanFile);
 $("exportPlan").addEventListener("click", exportPlan);
@@ -1671,6 +1920,12 @@ $("copyLink").addEventListener("click", async () => {
 // Changer de poste se reannonce tout de suite : le chef ne doit pas attendre
 // quinze secondes pour voir la pastille bouger.
 $("player").addEventListener("change", sendHello);
+
+// Couper le son doit faire taire ce qui etait deja programme, pas seulement ce
+// qui reste a venir.
+$("sound").addEventListener("change", () => {
+  if (!$("sound").checked) clearSchedule();
+});
 
 // Le decalage perso se regle en direct pendant un run.
 $("offset").addEventListener("change", () => { if (S.cues.length) buildCues(); });

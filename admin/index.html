@@ -8,7 +8,7 @@
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
 <meta name="referrer" content="no-referrer" />
 <meta name="robots" content="noai, noimageai" />
-<title>Mitigoke — ability mapping</title>
+<title>Mitigoke — ability mapping 0.0.6</title>
 <style>
   :root {
     --bg: #0a0e13; --panel: #141b24; --line: #253243; --text: #e6edf5;
@@ -41,6 +41,7 @@
   .dirty { color: var(--warn); font-weight: 600; }
   .msg { margin-left: auto; font-size: .87rem; }
   .msg.ok { color: var(--soon); } .msg.bad { color: var(--bad); }
+  .sub.err { color: var(--bad); }
 
   table { width: 100%; border-collapse: collapse; }
   th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: left; }
@@ -86,6 +87,29 @@
   .srcdesc { display: block; margin-top: 9px; font-size: .78rem; color: var(--muted);
              border-left: 2px solid #24413a; padding: 3px 0 3px 10px; max-width: 92ch; }
   .srcdesc b { color: var(--soon); font-weight: 600; }
+
+  /* Composants d'une action generique. Meme disposition que les icones par job
+     — un code de job, une saisie, un apercu — parce que c'est la meme question
+     posee autrement : « que vaut ce raccourci pour CE job ? » */
+  .comps { margin-top: 12px; border-top: 1px solid #24413a; padding-top: 10px; }
+  .compline { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .compline input { flex: 1 1 auto; font-family: ui-monospace, Consolas, monospace; font-size: .74rem; }
+  .cthumbs { display: flex; gap: 3px; flex: 0 0 auto; min-width: 22px; }
+  .thumb.sm { width: 22px; height: 22px; border-radius: 4px; }
+  .compadd { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .compadd select { font-size: .8rem; padding: 4px 7px; }
+
+  /* Alias : deux noms pour la meme action. */
+  .aliasrow { display: flex; align-items: center; gap: 8px; padding: 5px 0;
+              border-bottom: 1px solid var(--line); font-size: .82rem; }
+  .aliasrow code { font-family: ui-monospace, Consolas, monospace; font-size: .76rem; }
+  .aliasrow .arr { color: var(--muted); }
+  .aliasrow button { padding: 2px 8px; font-size: .76rem; }
+  .unk { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; max-height: 190px; overflow: auto; }
+  .unk button { font-family: ui-monospace, Consolas, monospace; font-size: .74rem; padding: 3px 8px; }
+  #btnAlias .badge { display: inline-block; min-width: 16px; padding: 0 4px; margin-left: 5px;
+                     border-radius: 8px; background: var(--warn); color: #1a1408;
+                     font-size: .7rem; font-weight: 700; }
   /* Une saisie refusee ne doit pas disparaitre en silence : le champ reste
      visible et rouge, mais rien n'est ecrit dans DOC. */
   input.bad { border-color: var(--bad); color: var(--bad); }
@@ -123,8 +147,10 @@
       <option value="split">Magic/phys split</option>
       <option value="shield">Shields</option>
       <option value="notype">No type</option>
+      <option value="generic">Generic (components)</option>
     </select>
     <span class="stat" id="stat"></span>
+    <button id="btnAlias" title="Point an unknown ability id at a known one">Aliases…</button>
     <button class="primary" id="save" disabled>Save</button>
     <span class="msg" id="msg"></span>
   </div>
@@ -162,6 +188,32 @@
   <option value="single"></option><option value="enemy"></option>
 </datalist>
 
+<datalist id="dl-abilities"></datalist>
+
+<dialog id="aliases">
+  <strong>Aliases</strong>
+  <div class="sub" style="margin:4px 0 0">
+    When a plan arrives with an id the table does not know — <code>party_mitigation</code>
+    where we say <code>tank_party_mit</code> — point one at the other. The target must exist;
+    the source is precisely the id that does not.
+  </div>
+  <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+    <input class="grow" id="aliasFrom" placeholder="unknown id" autocomplete="off" />
+    <span class="arr">→</span>
+    <input class="grow" id="aliasTo" list="dl-abilities" placeholder="known id" autocomplete="off" />
+    <button id="aliasAdd">Add</button>
+  </div>
+  <div class="sub" id="aliasMsg" style="margin:6px 0 0;min-height:1.2em"></div>
+
+  <div class="note" style="margin:14px 0 2px">In the upstream catalogue, absent from the table</div>
+  <div class="unk" id="aliasUnknown"></div>
+
+  <div class="note" style="margin:14px 0 2px">Current aliases</div>
+  <div id="aliasList"></div>
+
+  <div style="text-align:right;margin-top:14px"><button id="aliasClose">Close</button></div>
+</dialog>
+
 <dialog id="picker">
   <strong>Pick an icon</strong>
   <div class="sub" id="pickFor" style="margin:4px 0 0"></div>
@@ -197,7 +249,7 @@ function loadCatalogue() {
   if (CAT || catPending) return catPending;
   catPending = fetch("../api.php?abilities=1")
     .then((r) => (r.ok ? r.json() : null))
-    .then((d) => { CAT = d || {}; draw(); })
+    .then((d) => { CAT = d || {}; draw(); drawAliases(); })
     .catch(() => { CAT = {}; });
   return catPending;
 }
@@ -236,11 +288,62 @@ function statLine() {
   const noDur = a.filter((e) => !e.dur).length;
   const noType = a.filter((e) => !e.type).length;
   const split = a.filter((e) => e.mitMagic !== undefined || e.mitPhys !== undefined).length;
+  const gen = a.filter((e) => e.components).length;
+  const al = Object.keys(DOC.aliases || {}).length;
   return `<b>${a.length}</b> abilities · <b>${noIcon}</b> without icon · <b>${noFr}</b> without French`
        + ` · <b>${noDur}</b> without duration · <b>${noType}</b> without type`
-       + ` · <b>${split}</b> with a damage split`
+       + ` · <b>${split}</b> with a damage split · <b>${gen}</b> generic · <b>${al}</b> aliases`
        + (dirty ? ' · <span class="dirty">unsaved changes</span>' : "");
 }
+
+/**
+ * Les composants d'une entree, ramenes a une forme unique { JOB: [ids] }.
+ *
+ * La table accepte les deux ecritures — une liste plate pour « c'est pareil
+ * quel que soit le job », un objet quand ca differe — parce que les deux
+ * s'ecrivent naturellement a la main. La page n'en manipule qu'une.
+ */
+function compMap(e) {
+  const c = e.components;
+  const m = {};
+  if (Array.isArray(c)) m["*"] = c.slice();
+  else if (c && typeof c === "object") {
+    for (const k of Object.keys(c)) if (Array.isArray(c[k])) m[k] = c[k].slice();
+  }
+  return m;
+}
+
+/** Ecrit la forme la plus simple qui dise la meme chose, ou retire la cle. */
+function writeComponents(e, job, ids) {
+  const m = compMap(e);
+  if (ids.length) m[job] = ids; else delete m[job];
+  const keys = Object.keys(m).filter((k) => m[k].length);
+  if (!keys.length) { delete e.components; return; }
+  if (keys.length === 1 && keys[0] === "*") { e.components = m["*"]; return; }
+  const o = {};
+  for (const k of keys) o[k] = m[k];
+  e.components = o;
+}
+
+/** Les jobs auxquels il est sense d'attribuer une composition differente. */
+function componentJobs(e) {
+  const j = String(e.job || "").toUpperCase();
+  if (DOC.jobs && DOC.jobs[j]) return [j];
+  return candidateJobs(e);
+}
+
+/** L'apercu d'un composant : son icone pour ce job, sinon la principale. */
+function compThumb(cid, job) {
+  const a = DOC.abilities[cid];
+  if (!a) return `<span class="thumb sm none" title="${esc(cid)} — unknown"></span>`;
+  const p = (job && job !== "*" && a.byJob && a.byJob[job]) || a.icon ||
+            (a.byJob ? Object.values(a.byJob)[0] : "");
+  return p
+    ? `<img class="thumb sm" src="../${esc(p)}" alt="" title="${esc(cid)}" loading="lazy" />`
+    : `<span class="thumb sm none" title="${esc(cid)}"></span>`;
+}
+
+const compThumbs = (ids, job) => ids.map((c) => compThumb(c, job)).join("");
 
 function matches(id, e) {
   const q = $("q").value.trim().toLowerCase();
@@ -253,6 +356,7 @@ function matches(id, e) {
   if (f === "split" && e.mitMagic === undefined && e.mitPhys === undefined) return false;
   if (f === "shield" && e.type !== "shield") return false;
   if (f === "notype" && e.type) return false;
+  if (f === "generic" && !e.components) return false;
   if (!q) return true;
   return (id + " " + (e.job || "") + " " + (e.en || "") + " " + (e.fr || "") +
           " " + (e.de || "") + " " + (e.ja || "")).toLowerCase().includes(q);
@@ -332,7 +436,47 @@ function parmRows(id, e) {
       parmField(e, "cd", "Recast", "seconds") +
       parmField(e, "charges", "Charges", "if > 1") +
       parmField(e, "shieldStacks", "Shield stacks", "Haima, Panhaima") +
-    `</div>${src}</td></tr>`;
+    `</div>${compBlock(id, e)}${src}</td></tr>`;
+}
+
+/**
+ * Les sorts qu'une action GENERIQUE designe reellement.
+ *
+ * « Kitchen Sink », « Party Mit », « Buddy Mit » ne sont pas des actions du jeu
+ * mais des raccourcis de langage, et selon le job ce sont deux ou trois boutons
+ * differents. Cinq entrees n'ont d'ailleurs aucune icone pour cette raison : ce
+ * sont leurs composants qui en ont une, et c'est ce que le planificateur affiche.
+ *
+ * « * » vaut pour tous les jobs ; une ligne de job le remplace pour celui-la.
+ */
+function compBlock(id, e) {
+  const m = compMap(e);
+  const jobs = ["*", ...Object.keys(m).filter((k) => k !== "*")];
+  const lines = jobs.map((j) => {
+    const ids = m[j] || [];
+    return `<div class="compline">` +
+             `<span class="jobcode">${esc(j === "*" ? "all" : j)}</span>` +
+             `<span class="cthumbs">${compThumbs(ids, j)}</span>` +
+             `<input data-cf="${esc(j)}" value="${esc(ids.join(" "))}" ` +
+               `placeholder="ability ids, separated by spaces" />` +
+           `</div>`;
+  }).join("");
+
+  const free = componentJobs(e).filter((j) => !(j in m));
+  const add = free.length
+    ? `<div class="compadd"><span class="jobcode"></span>` +
+      `<select data-cadd="${esc(id)}"><option value="">Add a job…</option>` +
+      free.map((j) => `<option value="${esc(j)}">${esc(j)}</option>`).join("") +
+      `</select></div>`
+    : "";
+
+  return `<div class="comps">` +
+    `<div class="parmhint" style="margin-bottom:7px">` +
+      `<b>Components</b> — fill this only for a generic label that stands for several real ` +
+      `actions. The planner shows their icons instead of a grey chip, and lists their names. ` +
+      `Ids are checked against the table: an unknown one turns the field red and is dropped, ` +
+      `everything valid on the line is still kept.` +
+    `</div>${lines}${add}</div>`;
 }
 
 function draw() {
@@ -408,6 +552,38 @@ $("rows").addEventListener("input", (ev) => {
   if (v) neu.src = "../" + v;
   old.replaceWith(neu);
   setDirty(true);
+});
+
+// Saisie d'une composition. On n'ecrit que les identifiants VALIDES et connus,
+// et le champ rougit s'il en reste un qui ne l'est pas : redessiner la ligne
+// perdrait le curseur, et effacer la saisie entiere sur un mot a moitie tape
+// serait insupportable.
+$("rows").addEventListener("input", (ev) => {
+  const inp = ev.target.closest("input[data-cf]");
+  if (!inp) return;
+  const id = inp.closest("tr.parmrow").dataset.id;
+  const job = inp.dataset.cf;
+  const all = inp.value.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+  const good = all.filter((x) => /^[a-z0-9_]{1,64}$/.test(x) && DOC.abilities[x]);
+  inp.classList.toggle("bad", good.length !== all.length);
+  writeComponents(DOC.abilities[id], job, good);
+  inp.closest(".compline").querySelector(".cthumbs").innerHTML = compThumbs(good, job);
+  setDirty(true);
+});
+
+$("rows").addEventListener("change", (ev) => {
+  const sel = ev.target.closest("select[data-cadd]");
+  if (!sel || !sel.value) return;
+  const e = DOC.abilities[sel.dataset.cadd];
+  const m = compMap(e);
+  // On repart de la composition « tous jobs », qui est presque toujours ce
+  // qu'on veut affiner. Ecriture directe et non writeComponents : celui-ci
+  // retire les lignes vides, or c'est justement une ligne vide qu'on veut
+  // afficher pour la remplir. mapping.php les elague a l'enregistrement.
+  m[sel.value] = (m[sel.value] || m["*"] || []).slice();
+  e.components = m;
+  setDirty(true);
+  draw();
 });
 
 $("rows").addEventListener("input", (ev) => {
@@ -529,6 +705,79 @@ $("pickClear").addEventListener("click", () => {
 });
 $("pickClose").addEventListener("click", () => $("picker").close());
 
+// ----------------------------------------------------------------------
+//  Alias — deux noms pour la meme action
+// ----------------------------------------------------------------------
+function drawAliases() {
+  const al = DOC.aliases || {};
+  const keys = Object.keys(al).sort();
+  $("aliasList").innerHTML = keys.length
+    ? keys.map((k) =>
+        `<div class="aliasrow"><code>${esc(k)}</code><span class="arr">→</span>` +
+        `<code>${esc(al[k])}</code>` +
+        `<button data-unalias="${esc(k)}" style="margin-left:auto">Remove</button></div>`).join("")
+    : '<div class="sub">None yet.</div>';
+
+  // Ce que l'amont connait et que la table ignore : c'est exactement la liste
+  // des identifiants qu'un plan importe afficherait en pastille grise.
+  const unk = CAT ? Object.keys(CAT).filter((k) => !DOC.abilities[k] && !al[k]).sort() : [];
+  $("aliasUnknown").innerHTML = CAT === null
+    ? '<div class="sub">Loading the upstream catalogue…</div>'
+    : (unk.length
+        ? unk.map((k) => `<button data-unk="${esc(k)}">${esc(k)}</button>`).join("")
+        : '<div class="sub">Every upstream id is already in the table.</div>');
+
+  $("btnAlias").innerHTML = "Aliases…" + (unk.length ? `<span class="badge">${unk.length}</span>` : "");
+  $("dl-abilities").innerHTML = Object.keys(DOC.abilities)
+    .map((k) => `<option value="${esc(k)}"></option>`).join("");
+}
+
+$("btnAlias").addEventListener("click", () => {
+  loadCatalogue();
+  drawAliases();
+  $("aliasMsg").textContent = "";
+  $("aliasMsg").className = "sub";
+  $("aliases").showModal();
+});
+$("aliasClose").addEventListener("click", () => $("aliases").close());
+
+$("aliasAdd").addEventListener("click", () => {
+  const from = $("aliasFrom").value.trim().toLowerCase();
+  const to = $("aliasTo").value.trim().toLowerCase();
+  const msg = $("aliasMsg");
+  msg.className = "sub err";
+  if (!/^[a-z0-9_]{1,64}$/.test(from)) { msg.textContent = "The source is not a plain ability id."; return; }
+  if (!DOC.abilities[to]) { msg.textContent = `“${to}” is not in the table — the target must exist.`; return; }
+  if (DOC.abilities[from]) {
+    msg.textContent = `“${from}” is a real ability, so the alias would never be read.`;
+    return;
+  }
+  DOC.aliases = DOC.aliases || {};
+  DOC.aliases[from] = to;
+  $("aliasFrom").value = "";
+  $("aliasTo").value = "";
+  msg.className = "sub";
+  msg.textContent = `${from} → ${to}. Save to write it.`;
+  setDirty(true);
+  drawAliases();
+});
+
+$("aliasList").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-unalias]");
+  if (!b || !DOC.aliases) return;
+  delete DOC.aliases[b.dataset.unalias];
+  if (!Object.keys(DOC.aliases).length) delete DOC.aliases;
+  setDirty(true);
+  drawAliases();
+});
+
+$("aliasUnknown").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-unk]");
+  if (!b) return;
+  $("aliasFrom").value = b.dataset.unk;
+  $("aliasTo").focus();
+});
+
 $("q").addEventListener("input", draw);
 $("filter").addEventListener("change", draw);
 
@@ -562,6 +811,10 @@ window.addEventListener("beforeunload", (e) => {
   try {
     DOC = await (await fetch("../mapping.json?" + Date.now())).json();
     draw();
+    // Le catalogue amont est demande d'entree, mais seulement pour compter les
+    // identifiants qu'on ne connait pas et le dire sur le bouton. api.php le
+    // garde 24 h en cache : c'est une requete, et elle ne repart pas en amont.
+    loadCatalogue();
   } catch (e) {
     $("foot").textContent = "Could not load mapping.json: " + e.message;
   }

@@ -9,7 +9,7 @@
 <meta name="referrer" content="no-referrer" />
 <meta name="robots" content="noai, noimageai" />
 <meta name="theme-color" content="#0a0e13" />
-<title>Mitigoke — plan creator</title>
+<title>Mitigoke — plan planner 0.0.6</title>
 <style>
   :root {
     --bg: #0a0e13;
@@ -65,8 +65,12 @@
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel);
   }
-  #top .brand { font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
+  #top .brand { font-weight: 700; letter-spacing: .01em; white-space: nowrap; line-height: 1.15; }
+  #top .brand a { color: inherit; text-decoration: none; letter-spacing: .04em; }
+  #top .brand a:hover { color: var(--accent); }
   #top .brand span { color: var(--muted); font-weight: 400; font-size: .85rem; }
+  #top .brand small { display: block; font-weight: 400; font-size: .58rem;
+                      letter-spacing: .05em; color: var(--past); }
   #top .sp { flex: 1 1 auto; }
   #title { min-width: 190px; }
   .grp { display: flex; align-items: center; gap: 6px; }
@@ -93,11 +97,16 @@
 
   /* Les quatre colonnes de repere restent visibles quand on defile en largeur :
      poser une mitigation sans voir le cast qu'elle couvre n'aurait aucun sens. */
+  /* La mecanique est ecrite a la verticale, comme la phase : son nom n'a pas
+     besoin d'etre lu en travers pour qu'on sache dans quelle fenetre on est, et
+     les 82 px rendus vont aux colonnes de job, ou ils manquaient vraiment. */
   .col1 { flex: 0 0 54px;  position: sticky; left: 0;     z-index: 4; }
   .col2 { flex: 0 0 26px;  position: sticky; left: 54px;  z-index: 4; }
-  .col3 { flex: 0 0 116px; position: sticky; left: 80px;  z-index: 4; }
-  .col4 { flex: 0 0 200px; position: sticky; left: 196px; z-index: 4;
+  .col3 { flex: 0 0 34px;  position: sticky; left: 80px;  z-index: 4; }
+  .col4 { flex: 0 0 200px; position: sticky; left: 114px; z-index: 4;
           box-shadow: 6px 0 8px -6px rgba(0, 0, 0, .75); }
+  #head .col2, #head .col3 { padding: 6px 3px; }
+  #head .col3 .slot { font-size: .6rem; letter-spacing: .02em; }
   .colj { flex: 1 0 118px; min-width: 118px; }
   #head .col1, #head .col2, #head .col3, #head .col4 { z-index: 7; background: var(--panel); }
 
@@ -214,22 +223,36 @@
 
   /* --- mécaniques --- */
   .mec {
-    position: absolute; left: 3px; right: 3px; border-radius: 7px;
+    position: absolute; left: 3px; right: 3px; border-radius: 7px; overflow: hidden;
     border: 1px solid #3d3467; background: rgba(143, 123, 212, .10); cursor: pointer;
   }
   .mec:hover { border-color: var(--mech); }
   .mec.sel { border-color: var(--mech); box-shadow: 0 0 0 1px var(--mech); }
+  /* Meme traitement que la phase : ecriture verticale et etiquette collante,
+     pour qu'un nom long reste lisible dans 34 px sans jamais deborder. */
   .mec b {
-    position: sticky; top: calc(var(--headh) + 4px); display: block; font-size: .72rem; font-weight: 600;
-    color: #bcaef0; padding: 3px 7px; line-height: 1.2;
+    position: sticky; top: calc(var(--headh) + 4px); display: block; font-size: .66rem; font-weight: 600;
+    writing-mode: vertical-rl; text-orientation: mixed; color: #bcaef0;
+    padding: 6px 1px; line-height: 1.1; white-space: nowrap; max-height: 100%;
+    overflow: hidden; text-overflow: ellipsis;
   }
 
   /* --- casts du boss --- */
+  /* La boite COUVRE l'incantation : son haut est l'instant ou la barre part,
+     son bas celui ou les degats tombent. Une hauteur fixe ne disait rien de ce
+     temps-la, et c'est pourtant lui qu'une mitigation cherche a couvrir. Le
+     liseré du bas marque l'application, celui de gauche la progression. */
   .cast {
     position: absolute; left: 4px; right: 6px; border-radius: 6px; cursor: pointer;
-    background: #16202c; border: 1px solid #2c3d52; padding: 2px 7px;
-    display: flex; align-items: center; gap: 6px; min-height: 20px;
+    background: #16202c; border: 1px solid #2c3d52; padding: 2px 7px 2px 9px;
+    display: flex; align-items: flex-start; gap: 6px; min-height: 20px; overflow: hidden;
+    box-shadow: inset 0 -2px 0 #2c3d52;
   }
+  .cast::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(to bottom, rgba(77, 163, 255, .12), var(--accent));
+  }
+  .cast.instant::before { background: var(--accent); }
   .cast:hover { border-color: var(--accent); }
   .cast.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .cast.mov { cursor: grab; }
@@ -242,18 +265,29 @@
   .cast .dmg.magical  { background: #2b2145; color: #c4b0f5; }
   .cast .dmg.physical { background: #3b2820; color: #f0b394; }
   .cast .dmg.special  { background: #123430; color: #7fdcc4; }
-  .cast.tb { border-color: #5a3327; background: #201720; }
+  .cast .nm { flex: 1 1 auto; }
+  .cast.tb { border-color: #5a3327; background: #201720; box-shadow: inset 0 -2px 0 var(--tb); }
   .cast.tb .nm { color: var(--tb); }
-  .cast.enrage { border-color: #6b2a2a; background: #22151a; }
+  .cast.tb::before { background: linear-gradient(to bottom, rgba(255, 122, 89, .12), var(--tb)); }
+  .cast.tb.instant::before { background: var(--tb); }
+  .cast.enrage { border-color: #6b2a2a; background: #22151a; box-shadow: inset 0 -2px 0 #ff6b6b; }
   .cast.enrage .nm { color: #ff6b6b; }
-  /* La barre d'incantation part du debut du cast et descend jusqu'a l'application. */
-  .bar {
-    position: absolute; left: 0; width: 3px; border-radius: 2px;
-    background: linear-gradient(to bottom, rgba(77,163,255,.15), var(--accent));
-    pointer-events: none;
+  /* Un cast a plusieurs impacts : une explosion par application, numerotee des
+     qu'il y en a deux. Sans reperes on croyait le degat unique et pose a la fin
+     de l'incantation, alors qu'il retombe encore trois secondes plus tard. */
+  .boom {
+    position: absolute; left: 0; right: 0; height: 0; z-index: 3; pointer-events: none;
+    display: flex; align-items: center; gap: 3px; padding-left: 2px;
   }
-  .bar.tb { background: linear-gradient(to bottom, rgba(255,122,89,.15), var(--tb)); }
-  .hit { position: absolute; left: 0; width: 9px; height: 2px; background: var(--tb); opacity: .8; }
+  .boom::after {
+    content: ""; position: absolute; left: 0; right: 4px; top: 0;
+    border-top: 1px dashed rgba(255, 122, 89, .5);
+  }
+  .boom i { font-style: normal; font-size: .8rem; line-height: 0; z-index: 1;
+            filter: drop-shadow(0 0 2px rgba(4, 8, 13, .95)); }
+  .boom em { font-style: normal; font-size: .56rem; font-weight: 700; color: var(--tb);
+             background: rgba(4, 8, 13, .82); border-radius: 3px; padding: 0 3px; z-index: 1;
+             font-variant-numeric: tabular-nums; }
 
   /* --- blocs de mitigation --- */
   .blk {
@@ -262,17 +296,66 @@
     display: flex; align-items: flex-start; gap: 4px; padding: 2px 3px;
     box-shadow: 0 1px 2px rgba(0,0,0,.4);
   }
-  /* Les tuiles portent un `z-index` en ligne pour s'empiler de gauche a droite ;
-     `!important` est ici le seul moyen de faire passer devant celle qu'on vise. */
-  .blk:hover { border-color: var(--accent); z-index: 30 !important; }
-  .blk.sel { border-color: var(--now); box-shadow: 0 0 0 1px var(--now); z-index: 29 !important; }
-  .blk.clash { border-color: var(--bad); }
+  /* SURTOUT PAS de promotion en z-index au survol ni a la selection.
+     En cascade, une tuile longue recouvre le corps des plus courtes qui la
+     suivent ; la faire passer devant les rendait DEFINITIVEMENT inatteignables,
+     puisque la souris restait sur elle et qu'elle restait donc promue.
+     L'empilage ne depend que de la position dans la cascade, et ne bouge jamais.
+
+     Le signal passe par une ombre INTERNE. Pas par `border-width` : `box-sizing:
+     border-box` est global, epaissir la bordure retrecirait la zone de contenu
+     et ferait sauter l'icone d'un pixel au survol. Pas par `outline` non plus :
+     il se dessine a l'exterieur de la boite et viendrait mordre sur l'icone
+     voisine, ce que tout le reste de la mise en page s'interdit. */
+  .blk:hover { border-color: var(--accent);
+               box-shadow: inset 0 0 0 2px var(--accent), 0 1px 2px rgba(0, 0, 0, .4); }
+  .blk.sel { border-color: var(--now);
+             box-shadow: inset 0 0 0 2px var(--now), 0 1px 2px rgba(0, 0, 0, .4); }
+  /* Capacite relancee avant la fin de son recast : hachures rouges. La couleur
+     du liseré seule se confondait avec le survol, et se perdait completement
+     dans une cascade dense. */
+  .blk.clash {
+    border-color: var(--bad);
+    background-image: repeating-linear-gradient(135deg,
+      rgba(255, 139, 122, .34) 0 5px, transparent 5px 10px);
+  }
+
+  /* Ou l'on PEUT poser, pendant un glisser : les fenetres ou la capacite a une
+     charge disponible. Derriere les tuiles (z-index 0), sinon la trame verte
+     viendrait voiler ce qu'on essaie justement de contourner. */
+  .okl { display: none; position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+  .okl.on { display: block; }
+  .okl .band {
+    position: absolute; left: 0; right: 0;
+    background: rgba(71, 209, 139, .17);
+    border-top: 1px solid rgba(71, 209, 139, .6);
+    border-bottom: 1px solid rgba(71, 209, 139, .6);
+  }
+
+  /* Report de la fenetre de la mitigation sur les colonnes du boss : ce qu'elle
+     couvre vraiment. Vit DANS les voies epinglees, donc suit leur defilement
+     sans le moindre calcul de coordonnees. */
+  .cov {
+    display: none; position: absolute; left: 0; right: 0; z-index: 2; pointer-events: none;
+    background: rgba(77, 163, 255, .12);
+    border-top: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+  }
+  .cov.on { display: block; }
+  .cast.covhit { border-color: var(--soon); box-shadow: inset 0 0 0 2px var(--soon); }
+  .mec.covhit { border-color: var(--soon); box-shadow: 0 0 0 1px var(--soon); }
+  /* Grappe plus dense que la largeur ne peut en montrer : les positions
+     rebouclent et deux icones finissent par se toucher. Elargir la colonne
+     resout, d'ou le repere plutot que le silence. */
+  .blk.over { border-left: 2px solid var(--bad); }
   /* L'icone reste carree quoi qu'il arrive : `aspect-ratio` tient la hauteur sur
      la largeur, et `max-width` la fait ceder au bloc — mais jamais au nom pose a
      cote, d'ou `flex: 0 0 auto`. Sans ca, un nom long ecrasait l'icone a 10 px
      dans une colonne pourtant large. */
+  /* La taille de l'icone se decide par GRAPPE, pas globalement : une grappe plus
+     profonde que la largeur ne peut en montrer reduit ses icones plutot que de
+     les laisser se chevaucher. D'ou la variable, posee en ligne sur la tuile. */
   .blk img, .blk .chip {
-    display: block; flex: 0 0 auto; width: 20px; max-width: 100%; height: auto;
+    display: block; flex: 0 0 auto; width: var(--iw, 18px); max-width: 100%; height: auto;
     aspect-ratio: 1 / 1; object-fit: contain; border-radius: 3px;
   }
   .blk .chip {
@@ -281,8 +364,30 @@
   }
   .blk .nm { font-size: .68rem; line-height: 1.1; overflow: hidden; min-width: 0; }
   .blk.short .nm, .blk.tight .nm { display: none; }
+  /* Dans combien de temps la capacite revient vraiment. Sur la tuile quand il y
+     a de quoi le lire, et dans l'infobulle en toute circonstance. */
+  .blk .rdy { display: block; margin-top: 1px; font-size: .62rem; font-weight: 600;
+              color: var(--bad); white-space: nowrap; }
   .blk.tight { padding: 1px; gap: 2px; }
-  .blk .nt { color: var(--now); }
+  /* Une note ne prend plus de place dans la tuile — a 18 px de large il n'y en
+     a pas. Une etoile posee SUR l'icone, la seule partie jamais recouverte en
+     cascade, et le texte au survol. */
+  .blk .star {
+    position: absolute; top: -1px; left: 0; font-size: .78rem; line-height: 1;
+    color: var(--now); text-shadow: 0 0 3px #000, 0 0 3px #000; pointer-events: none; z-index: 2;
+  }
+  /* Les sorts qui composent une action generique : « Kitchen Sink » n'a pas
+     d'image en propre, ce sont ses composants qui en ont une. */
+  /* Par defaut le compteur « +2 » suit les icones en ligne ; seule la tuile, ou
+     il n'y a pas un pixel a lui donner, le pose en surimpression. */
+  .comp { display: flex; align-items: flex-start; gap: 2px; flex: 0 0 auto; max-width: 100%; }
+  .cn { flex: 0 0 auto; font-size: .66rem; font-weight: 700; color: var(--soon); }
+  .blk .comp { gap: 1px; }
+  .blk .cn {
+    position: absolute; bottom: 0; left: 0; font-size: .52rem;
+    background: rgba(4, 8, 13, .82); border-radius: 3px 3px 0 0;
+    padding: 0 2px; pointer-events: none; z-index: 2;
+  }
   /* Ce qui reste a courir avant de pouvoir relancer la capacite. */
   .cdg {
     position: absolute; border-radius: 0 0 5px 5px; pointer-events: none; opacity: .55;
@@ -302,6 +407,9 @@
   }
   #ghost img { width: 20px; height: 20px; display: block; }
   #ghost .tm { color: var(--now); font-variant-numeric: tabular-nums; }
+  #ghost .cv:not(:empty) { color: var(--soon); font-size: .72rem; white-space: nowrap; }
+  #ghost .rd:not(:empty) { color: var(--now); font-size: .72rem; white-space: nowrap;
+                           font-variant-numeric: tabular-nums; }
   #snap {
     position: absolute; left: 0; right: 0; height: 0; z-index: 8; pointer-events: none;
     border-top: 1px dashed var(--now);
@@ -348,6 +456,8 @@
   .pal .chip { width: 26px; height: 26px; border-radius: 4px; flex: 0 0 auto; font-size: .58rem;
                font-weight: 700; display: flex; align-items: center; justify-content: center;
                color: #04121f; background: var(--past); }
+  .pal .comp { display: flex; gap: 2px; flex: 0 0 auto; }
+  .pal .comp img, .pal .comp .chip { width: 22px; height: 22px; }
   .pal .txt { min-width: 0; flex: 1 1 auto; }
   .pal .nm { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pal .sub { font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -428,7 +538,8 @@
 
 <div id="app">
   <div id="top">
-    <div class="brand">Mitigoke <span>plan creator</span></div>
+    <div class="brand"><a href="../" title="Back to the prompter">MITIGOKE</a>
+      <span>plan planner</span><small>by danikuma SPINECHO</small></div>
     <input id="title" placeholder="Plan title" />
     <div class="grp">
       <button id="btnImport">Import…</button>
@@ -585,6 +696,19 @@
     at once shows plain markers instead of icons: at that width nothing would tell you
     whose they are.
   </p>
+  <p class="muted" style="margin:10px 0 0">
+    A <b>boss cast</b> box spans its castbar: the top is when it starts, the bottom when it
+    lands. 💥 marks each hit of a multi-hit cast. Mitigations that overlap <b>cascade</b> —
+    only their left edge shifts, by one icon, so two icons never sit on top of each other.
+    A yellow <b>*</b> means the block carries a note; hover it to read it.
+  </p>
+  <p class="muted" style="margin:10px 0 0">
+    While you drag, <b>green bands</b> show where the ability actually has a charge left, and
+    a blue band on the boss columns shows what the mitigation would cover — the casts and
+    mechanics inside it light up, and the ghost counts them. A block <b>hatched in red</b> is
+    one fired before its recast is back. Dropping there is still allowed: the ghost turns
+    amber rather than refusing, since a plan is often built knowing it will be fixed after.
+  </p>
   <div class="acts"><button id="helpClose" class="primary">Got it</button></div>
 </dialog>
 
@@ -601,7 +725,9 @@
 // qu'un plan cree ici se recharge tel quel dans le prompteur.
 const S = {
   doc: null,
-  map: { jobs: {}, abilities: {} },  // mapping.json : noms, icones, durees
+  // mapping.json : noms, icones, durees, et depuis la 0.0.6 les composants des
+  // actions generiques et les alias d'identifiants
+  map: { jobs: {}, abilities: {}, aliases: {} },
   cat: {},                           // api.php?abilities=1 : recasts, charges
   lang: "en",
   sel: null,        // playerId de la colonne selectionnee
@@ -635,6 +761,17 @@ const fmt = (s) => {
   return (neg ? "-" : "") + m + ":" + String(r).padStart(2, "0");
 };
 const round1 = (n) => Math.round(n * 10) / 10;
+
+/**
+ * Une ATTENTE, arrondie a la seconde SUPERIEURE.
+ *
+ * `fmt()` tronque, et la tolerance de recharge vaut une demi-seconde : une
+ * attente de 0,6 s s'affichait donc « 0:00 » sur une tuile pourtant hachuree
+ * en rouge, ce qui se lit comme une panne. Arrondir au-dessus donne en plus le
+ * bon chiffre a l'usage : c'est de combien de secondes pleines il faut
+ * descendre la tuile pour etre certain d'etre dans la fenetre.
+ */
+const fmtWait = (s) => fmt(Math.ceil(Math.max(0, s) - 1e-9));
 const shortNum = (n) => (n >= 10000 ? Math.round(n / 1000) + "k" : String(n));
 
 // ----------------------------------------------------------------------
@@ -868,7 +1005,39 @@ function roleOfJob(job) {
  * en plus des noms, des icones et des durees au niveau 100. `S.cat` n'est plus
  * qu'un filet pour une table deployee anterieure — voir boot().
  */
+/**
+ * L'identifiant reellement porte par la table.
+ *
+ * L'amont emploie parfois deux noms pour la meme action — « party_mit » et
+ * « party_mitigation » — et un plan importe arrive avec celui qu'il a. La table
+ * porte donc un dictionnaire `aliases`, renseigne depuis admin/. On ne s'en sert
+ * QUE si l'identifiant est inconnu : une entree reelle l'emporte toujours, sinon
+ * un alias mal saisi detournerait silencieusement une capacite existante.
+ */
+function resolveId(abilityId) {
+  if (S.map.abilities[abilityId]) return abilityId;
+  const to = S.map.aliases && S.map.aliases[abilityId];
+  return to && S.map.abilities[to] ? to : abilityId;
+}
+
+/**
+ * Les sorts qui composent une action generique, pour ce job.
+ *
+ * « Kitchen Sink », « Party Mit », « Buddy Mit » ne sont pas des actions du jeu
+ * mais des raccourcis de langage : selon le job, ce sont deux ou trois boutons
+ * differents. La table peut donc porter `components`, soit une liste unique,
+ * soit une liste par job avec « * » en repli.
+ */
+function componentsOf(abilityId, job) {
+  const m = S.map.abilities[resolveId(abilityId)];
+  const c = m && m.components;
+  if (!c) return [];
+  const list = Array.isArray(c) ? c : (c[job] || c["*"] || []);
+  return Array.isArray(list) ? list.filter((x) => typeof x === "string" && x) : [];
+}
+
 function view(abilityId, job) {
+  abilityId = resolveId(abilityId);
   const m = S.map.abilities[abilityId];
   const c = S.cat[abilityId];
   if (!m && !c) {
@@ -906,6 +1075,7 @@ function mitLabel(v) {
 /** Cette capacite a-t-elle un sens pour ce job ? Meme regle que la palette, en O(1). */
 function okForJob(abilityId, job) {
   if (!job) return true;
+  abilityId = resolveId(abilityId);
   const a = S.map.abilities[abilityId];
   if (!a) return true;   // capacite inconnue de mapping.json : on ne juge pas
   const role = roleOfJob(job);
@@ -942,6 +1112,26 @@ function jobIcon(job, cls) {
 function abilityIcon(v, job, cls) {
   if (v.icon) return `<img src="../${esc(v.icon)}" alt="" loading="lazy" />`;
   return `<span class="chip ${esc(PSEUDO[roleOfJob(job)] || "")}">${esc(String(job).slice(0, 3))}</span>`;
+}
+
+/**
+ * L'icone d'une capacite, ou celles de ses composants quand c'en est une
+ * generique. `max` borne le nombre d'images : en cascade une tuile n'a que la
+ * largeur d'une icone, on n'en montre alors qu'une et un compteur.
+ */
+function iconsFor(abilityId, job, max) {
+  const comps = componentsOf(abilityId, job);
+  if (!comps.length) return abilityIcon(view(abilityId, job), job);
+  const show = comps.slice(0, Math.max(1, max || 1));
+  const imgs = show.map((cid) => abilityIcon(view(cid, job), job)).join("");
+  const rest = comps.length - show.length;
+  return `<span class="comp">${imgs}</span>` +
+         (rest > 0 ? `<span class="cn">+${rest}</span>` : "");
+}
+
+/** « Rampart + Thrill of Battle + Vengeance », pour les infobulles. */
+function componentNames(abilityId, job) {
+  return componentsOf(abilityId, job).map((cid) => view(cid, job).name).join(" + ");
 }
 
 // ======================================================================
@@ -1075,7 +1265,7 @@ function paintHead() {
   const h = [];
   h.push('<div class="col1"></div>');
   h.push('<div class="col2"><div class="slot">Ph</div></div>');
-  h.push('<div class="col3"><div class="slot">Mechanic</div></div>');
+  h.push('<div class="col3" title="Mechanic windows"><div class="slot">Mech</div></div>');
   h.push(
     '<div class="col4"><div class="slot">Boss cast</div>' +
     `<button id="btnLock" class="${S.lockBoss ? "" : "open"}" title="${
@@ -1178,25 +1368,41 @@ function paintLanes() {
   out.push(`<div class="lane col2">${ph.join("")}</div>`);
 
   // -- mecaniques
+  // Le nom est ecrit a la verticale et peut etre coupe par une fenetre courte :
+  // le `title` le rend en entier, avec ses bornes.
   const mc = f.mechanics.map((m) => {
     const top = yOf(m.startTime), h = Math.max(16, yOf(m.endTime - m.startTime));
     return `<div class="mec${S.pickMech === m.id ? " sel" : ""}" data-mech="${esc(m.id)}" ` +
-           `style="top:${top}px;height:${h}px"><b>${esc(m.name || "")}</b></div>`;
+           `style="top:${top}px;height:${h}px" title="${esc(m.name || "")} — ${
+             fmt(m.startTime)} → ${fmt(m.endTime)}"><b>${esc(m.name || "")}</b></div>`;
   });
   out.push(`<div class="lane col3" id="lmech">${mc.join("")}</div>`);
 
   // -- casts du boss
-  const cs = [];
+  //
+  // La boite d'un cast a desormais une VRAIE hauteur : elle part du debut de
+  // l'incantation et s'arrete a l'application. C'est la fenetre qu'une
+  // mitigation doit couvrir, et une etiquette de 20 px n'en disait rien.
+  // Un cast instantane garde une hauteur plancher, sinon il serait invisible.
+  const cs = [], booms = [];
   for (const b of f.bossActions) {
     const t = Number(b.time) || 0;
-    const ct = Number(b.castTime) || 0;
+    const ct = Math.max(0, Number(b.castTime) || 0);
     const kind = b.type === "tb" ? "tb" : b.type === "enrage" ? "enrage" : "";
-    if (ct > 0) {
-      cs.push(`<div class="bar ${kind}" style="top:${yOf(t - ct)}px;height:${yOf(ct)}px"></div>`);
-    }
-    for (const hit of (b.hits || [])) {
-      cs.push(`<div class="hit" style="top:${yOf(Number(hit) || 0)}px"></div>`);
-    }
+    const top = yOf(t - ct);
+    const h = Math.max(20, yOf(ct));
+
+    const hits = (b.hits || []).map((x) => Number(x) || 0).filter((x) => isFinite(x));
+    // Les explosions se dessinent APRES toutes les boites, dans leur propre
+    // passe : posees au fil de l'eau, celle d'un cast tombait derriere la boite
+    // du cast suivant des que les deux se recouvraient.
+    hits.forEach((hit, i) => {
+      booms.push(
+        `<div class="boom" style="top:${yOf(hit)}px">` +
+          `<i>💥</i>` + (hits.length > 1 ? `<em>${i + 1}/${hits.length}</em>` : "") +
+        `</div>`);
+    });
+
     // Type et montant des degats, quand ils ont ete renseignes.
     let dmg = "";
     if (b.damageType || b.damage) {
@@ -1206,14 +1412,21 @@ function paintLanes() {
         esc((b.damageType || "damage") + (b.damage ? " · " + b.damage : ""))}">${
         esc(bits.join(" "))}</span>`;
     }
+
+    const tip = [(b.name || "—") + " — lands at " + fmt(t)];
+    if (ct) tip.push("cast " + round1(ct) + " s, from " + fmt(t - ct));
+    if (hits.length) tip.push(hits.length + " hit" + (hits.length > 1 ? "s" : "") +
+                              ": " + hits.map((x) => fmt(x)).join(", "));
+
     cs.push(
-      `<div class="cast ${kind}${S.pickCast === b.id ? " sel" : ""}${S.lockBoss ? "" : " mov"}" ` +
-      `data-cast="${esc(b.id)}" style="top:${yOf(t) - 10}px">` +
+      `<div class="cast ${kind}${ct ? "" : " instant"}${S.pickCast === b.id ? " sel" : ""}` +
+      `${S.lockBoss ? "" : " mov"}" data-cast="${esc(b.id)}" ` +
+      `style="top:${top}px;height:${h}px" title="${esc(tip.join(" · "))}">` +
         `<span class="nm">${esc(b.name || "—")}</span>` + dmg +
         `<span class="tm">${fmt(t)}</span>` +
       `</div>`);
   }
-  out.push(`<div class="lane col4" id="lcast">${cs.join("")}</div>`);
+  out.push(`<div class="lane col4" id="lcast">${cs.join("") + booms.join("")}</div>`);
 
   // -- voies de job
   for (const c of columns()) out.push(c.kind === "solo" ? laneSolo(c) : laneGroup(c));
@@ -1277,13 +1490,21 @@ function laneMarkers(subs) {
 }
 
 /**
- * Empile les blocs qui se recouvrent sur des pistes cote a cote : un soigneur
- * enchaine cinq boutons en trois secondes, sans ca on ne verrait que le dernier.
+ * Empile les blocs qui se recouvrent EN CASCADE : chacun garde toute la largeur
+ * restante, et seul son bord gauche se decale, de la largeur d'une icone.
  *
- * Le decoupage se fait par GRAPPE de blocs qui se touchent, et la largeur n'est
- * divisee que dans la grappe concernee : une capacite isolee garde toute la
- * colonne meme si le soigneur enchaine quatre boutons ailleurs dans le combat.
+ * L'ancienne mise en page divisait la colonne par le nombre de pistes — a six
+ * capacites simultanees chaque tuile tombait a 19 px et l'icone avec elle. Ici
+ * les corps se chevauchent librement, ce qui ne coute rien puisqu'ils ne portent
+ * qu'un nom, et la seule chose garantie est que DEUX ICONES NE SE SUPERPOSENT
+ * JAMAIS : c'est elle qu'on lit, et c'est elle qui fixe la largeur minimale.
+ *
+ * Le decoupage se fait par GRAPPE de blocs qui se touchent : une capacite isolee
+ * garde toute la colonne meme si le soigneur enchaine quatre boutons ailleurs.
  */
+const ICON_W = 18;      // taille de confort, quand la grappe tient au large
+const ICON_MIN = 11;    // en dessous, ce n'est plus une icone : on cesse de reduire
+
 function laneBlocks(pid, job, wpx) {
   const list = S.doc.assignments
     .filter((a) => a.playerId === pid)
@@ -1301,7 +1522,14 @@ function laneBlocks(pid, job, wpx) {
     reach = Math.max(reach, a.startTime + spanOf(a));
   }
 
-  const clash = new Set(S.issues.filter((i) => i.kind === "cd").flatMap((i) => i.refs || []));
+  // Un seul bloc marque par violation : le plus tardif. Et s'il en viole
+  // plusieurs, on retient la disponibilite la PLUS TARDIVE — c'est elle qui
+  // commande, les autres sont deja passees.
+  const clash = new Map();
+  for (const i of S.issues) {
+    if (i.kind !== "cd" || !i.late) continue;
+    clash.set(i.late, Math.max(clash.get(i.late) || 0, i.ready || 0));
+  }
   const html = [];
 
   for (const g of groups) {
@@ -1314,35 +1542,84 @@ function laneBlocks(pid, job, wpx) {
       ends[tr] = a.startTime + spanOf(a);
       return tr;
     });
+    // Icone et pas se deduisent de la profondeur REELLE de cette grappe.
+    //
+    // Une taille fixe forcait a rebrousser a gauche des la septieme tuile, et le
+    // z-index continuait pourtant de monter : la septieme recouvrait alors
+    // l'icone de la premiere. Reduire l'icone pour cette grappe seule fait
+    // rentrer dix capacites simultanees au lieu de six, dans la meme largeur, en
+    // gardant le pas au moins egal a l'icone — donc sans jamais les superposer.
+    // LEAD : l'icone ne commence pas au bord de la tuile mais apres sa bordure
+    // et sa marge interne. Sans en tenir compte, le pas valait la seule largeur
+    // de l'icone et le corps de la tuile suivante mordait 1,8 px sur le bord
+    // droit de la precedente — deux icones ne se superposaient pas, mais l'une
+    // etait rognee par le voisin.
+    const LEAD = 4;
     const cols = Math.max(1, ends.length);
+    const avail = Math.max(ICON_MIN + LEAD, (wpx || COLW) - 4);
+    const iw = Math.max(ICON_MIN, Math.min(ICON_W, Math.floor(avail / cols) - LEAD));
+    const step = Math.max(iw + LEAD, Math.min(26, (avail - iw - LEAD) / Math.max(1, cols - 1)));
 
-    // Un huitieme de colonne, c'est une icone de trois pixels : carree, mais
-    // plus reconnaissable. En dessous de MIN_BLK on cesse de partager la largeur
-    // et on decale les pistes en tuiles, comme on le dessinerait a la main.
-    const MIN_BLK = 26;
-    const avail = Math.max(MIN_BLK, (wpx || COLW) - 4);
-    const bw = Math.max(MIN_BLK, avail / cols);
-    const step = cols > 1 ? Math.min(bw, (avail - bw) / (cols - 1)) : 0;
+    // Au-dela de ce que la largeur peut porter, les positions rebouclent. Le
+    // z-index suit alors la POSITION et non la profondeur : deux tuiles peuvent
+    // se toucher, mais une tuile de z-index superieur a toujours un `left`
+    // strictement plus grand — c'est cette propriete, et elle seule, qui garantit
+    // que la bande portant l'icone reste atteignable au pointeur.
+    // L'epsilon n'est pas de la superstition : (avail - iw) / step vaut souvent
+    // un entier a 1e-15 pres, et un `floor` nu retirerait alors une position.
+    const slots = Math.max(1, Math.floor((avail - iw - LEAD) / step + 1e-9) + 1);
 
     g.forEach((a, k) => {
       const v = view(a.abilityId, job);
       const top = yOf(a.startTime);
       const h = Math.max(22, yOf(v.dur || 0));
-      const box = `left:${round1(2 + track[k] * step)}px;width:${round1(bw)}px`;
+      const tr = track[k] % slots;
+      const dx = round1(2 + tr * step);
+      const bw = round1(Math.max(iw + LEAD + 2, avail - tr * step));
 
-      // Fantome de recharge : ce qui reste avant de pouvoir relancer. Toujours
-      // sous les blocs, sinon sa trame grise viendrait voiler la tuile voisine.
+      // Un bloc dont un voisin PLUS A DROITE le recouvre dans le temps a son
+      // corps masque : inutile d'y ecrire un nom que personne ne verra. Seul
+      // celui de droite, dont rien ne couvre le corps, garde le sien.
+      // Comparaison sur la POSITION, pas sur la profondeur : au-dela du
+      // rebouclage, c'est elle qui dit qui recouvre qui.
+      const covered = g.some((o, j) =>
+        (track[j] % slots) > tr &&
+        o.startTime < a.startTime + spanOf(a) &&
+        a.startTime < o.startTime + spanOf(o));
+
+      // Fantome de recharge : ce qui reste avant de pouvoir relancer. Large
+      // comme l'icone seulement — pleine largeur, sa trame grise viendrait
+      // voiler les tuiles voisines de la cascade.
       if (v.cd && v.cd > (v.dur || 0)) {
         html.push(`<div class="cdg" style="top:${top + h}px;height:${yOf(v.cd - (v.dur || 0))}px;` +
-                  `${box};z-index:0"></div>`);
+                  `left:${dx}px;width:${iw}px;z-index:0"></div>`);
       }
+
+      const comps = componentNames(a.abilityId, job);
+      const tip = [v.name + " — " + fmt(a.startTime)];
+      if (comps) tip.push(comps);
+      if (a.note) tip.push(a.note);
+
+      // Combien de temps il aurait fallu attendre. Toujours dans l'infobulle —
+      // une tuile serree n'a pas la place de l'ecrire — et en clair des qu'il y
+      // a de quoi le lire.
+      const ready = clash.get(a.id);
+      let rdy = "";
+      if (ready !== undefined) {
+        const waitFor = fmtWait(ready - a.startTime);
+        tip.push("not ready — available in " + waitFor + " (at " + fmt(ready) + ")");
+        rdy = `<span class="rdy">available in ${esc(waitFor)}</span>`;
+      }
+
       html.push(
-        `<div class="blk${h < 30 ? " short" : ""}${bw < 64 ? " tight" : ""}` +
-        `${S.pick === a.id ? " sel" : ""}${clash.has(a.id) ? " clash" : ""}" ` +
-        `data-a="${esc(a.id)}" style="top:${top}px;height:${h}px;${box};z-index:${track[k] + 1}" ` +
-        `title="${esc(v.name)} — ${fmt(a.startTime)}${a.note ? " — " + esc(a.note) : ""}">` +
-          abilityIcon(v, job) +
-          `<span class="nm">${esc(v.name)}${a.note ? '<br /><span class="nt">' + esc(a.note) + "</span>" : ""}</span>` +
+        `<div class="blk${h < 30 ? " short" : ""}${covered || bw < 64 ? " tight" : ""}` +
+        `${S.pick === a.id ? " sel" : ""}${clash.has(a.id) ? " clash" : ""}` +
+        `${track[k] >= slots ? " over" : ""}" ` +
+        `data-a="${esc(a.id)}" style="top:${top}px;height:${h}px;left:${dx}px;width:${bw}px;` +
+        `--iw:${iw}px;z-index:${tr + 1}" title="${esc(tip.join(" — "))}">` +
+          iconsFor(a.abilityId, job, g.length === 1 ? 4 : 1) +
+          `<span class="nm">${esc(v.name)}${rdy}</span>` +
+          (a.note ? '<span class="star" aria-label="has a note">*</span>' : "") +
         `</div>`);
     });
   }
@@ -1370,11 +1647,14 @@ function paintPalette() {
     if (v.type === "shield") bits.push("shield");
     if (v.dur) bits.push(v.dur + "s");
     if (v.cd) bits.push("↻ " + v.cd + "s" + (v.charges > 1 ? " ×" + v.charges : ""));
+    // Une generique se lit par ses composants : « Kitchen Sink » ne dit rien,
+    // « Rampart + Thrill of Battle » dit tout.
+    const comps = componentNames(id, job);
     html.push(
-      `<div class="pal" data-ab="${esc(id)}">` +
-        abilityIcon(v, job) +
+      `<div class="pal" data-ab="${esc(id)}" title="${esc(comps || id)}">` +
+        iconsFor(id, job, 3) +
         `<div class="txt"><div class="nm">${esc(v.name)}</div>` +
-        `<div class="sub">${esc(bits.join(" · ") || id)}</div></div>` +
+        `<div class="sub">${esc(comps || bits.join(" · ") || id)}</div></div>` +
       `</div>`);
   }
   $("palList").innerHTML = html.join("") ||
@@ -1513,9 +1793,12 @@ function check() {
   }
 
   // -- recasts : on compte les charges avant de crier
+  // Regroupement sur l'identifiant RESOLU : deux alias de la meme action
+  // partagent la meme recharge, et les compter a part la doublerait.
   const by = {};
   for (const a of S.doc.assignments) {
-    (by[a.playerId + "|" + a.abilityId] = by[a.playerId + "|" + a.abilityId] || []).push(a);
+    const k = a.playerId + "|" + resolveId(a.abilityId);
+    (by[k] = by[k] || []).push(a);
   }
   for (const k of Object.keys(by)) {
     const list = by[k].sort((x, y) => x.startTime - y.startTime);
@@ -1524,9 +1807,18 @@ function check() {
     const ch = Math.max(1, v.charges);
     for (let i = ch; i < list.length; i++) {
       const gap = list[i].startTime - list[i - ch].startTime;
-      if (gap < v.cd - 0.5) {
+      if (gap < v.cd - CD_TOL) {
+        // `late` : le SEUL bloc a marquer. C'est celui qui, en s'ajoutant a un
+        // historique jusque-la acceptable, fait basculer la fenetre ; le plus
+        // ancien appartenait a un etat valide avant qu'il n'arrive, et le
+        // rougir aussi accuserait un bloc qui n'a rien fait.
+        //
+        // `ready` : l'instant ou la capacite revient. La recharge part du DEBUT
+        // du bloc precedent, pas de la fin de son effet — elle court pendant que
+        // l'effet dure.
         out.push({ kind: "cd", level: gap < v.cd * 0.5 ? "err" : "warn",
           at: list[i].startTime, refs: [list[i - ch].id, list[i].id],
+          late: list[i].id, ready: round1(list[i - ch].startTime + v.cd),
           text: `${label(list[i])} again ${round1(gap)} s after ${fmt(list[i - ch].startTime)}, ` +
                 `but its recast is ${v.cd} s${ch > 1 ? ` (${ch} charges)` : ""}.` });
       }
@@ -1534,6 +1826,84 @@ function check() {
   }
 
   S.issues = out.sort((a, b) => (a.level === b.level ? a.at - b.at : a.level === "err" ? -1 : 1));
+}
+
+// ======================================================================
+//  Fenetres de recharge
+// ======================================================================
+// Tolerance commune au controle et au calque : s'ils divergeaient, le calque
+// annoncerait « posable ici » et la tuile virerait au rouge une fois posee.
+const CD_TOL = 0.5;
+
+/**
+ * Les instants ou l'on peut poser cette capacite sans manquer de charge.
+ *
+ * Modele a charges : une suite d'usages tries S est legale si, pour tout
+ * k >= c, S[k] - S[k-c] >= d. Une charge se regagne toutes les d secondes.
+ *
+ * Inserer t dans les usages deja poses F DECALE d'un rang tout ce qui suit, si
+ * bien que certaines contraintes changent de partenaire. En notant i le nombre
+ * d'elements de F strictement inferieurs a t :
+ *
+ *   (A) i >= c            ->  t >= F[i-c] + d
+ *   (B) i+c-1 <= m-1      ->  t <= F[i+c-1] - d
+ *   (C) j de i a i+c-2    ->  F[j] - F[j-(c-1)] >= d
+ *
+ * (C) est le piege : ce sont des paires distantes de c-1, que la legalite de F
+ * ne garantit pas — elle ne parle que des paires distantes de c. Elle ne depend
+ * pas de t mais du CRENEAU, et disqualifie donc le creneau en entier. Elle est
+ * vide des que c vaut 1, ce qui est le cas courant.
+ *
+ * L'ensemble rendu est donc une union d'au plus m+1 intervalles, un par creneau.
+ *
+ * Les violations DEJA presentes dans F ne sont pas prises en compte : le plan
+ * peut etre en conflit avant qu'on y touche, et rendre alors un calque vide
+ * priverait de repere au moment ou il sert le plus. `check()` les signale a part.
+ */
+function recastWindows(pid, abilityId, excludeId) {
+  const v = view(abilityId, jobOf(pid));
+  const d = v.cd || 0;
+  if (!d) return null;                       // pas de recharge : rien a contraindre
+  const c = Math.max(1, v.charges || 1);
+  const want = resolveId(abilityId);
+  const F = S.doc.assignments
+    .filter((a) => a.playerId === pid && a.id !== excludeId && resolveId(a.abilityId) === want)
+    .map((a) => a.startTime)
+    .sort((x, y) => x - y);
+
+  const m = F.length, end = S.doc.fight.duration, out = [];
+  for (let i = 0; i <= m; i++) {
+    let ok = true;
+    for (let j = i; j <= Math.min(i + c - 2, m - 1); j++) {
+      if (j - (c - 1) >= 0 && F[j] - F[j - (c - 1)] < d - CD_TOL) { ok = false; break; }
+    }
+    if (!ok) continue;
+
+    let lo = i > 0 ? F[i - 1] : 0;
+    let hi = i < m ? F[i] : end;
+    if (i >= c) lo = Math.max(lo, F[i - c] + d - CD_TOL);
+    if (i + c - 1 <= m - 1) hi = Math.min(hi, F[i + c - 1] - d + CD_TOL);
+    if (hi >= lo) out.push([Math.max(0, lo), Math.min(end, hi)]);
+  }
+  return out;
+}
+
+/** Ce temps tombe-t-il dans une des fenetres ? `null` = pas de recharge. */
+function inWindows(wins, t) {
+  if (!wins) return true;
+  return wins.some(([a, b]) => t >= a - 1e-6 && t <= b + 1e-6);
+}
+
+/**
+ * Le delai jusqu'au prochain instant permis. 0 si l'on y est deja, et `null`
+ * s'il n'existe aucune fenetre commencant apres t — descendre la tuile ne
+ * servirait alors a rien, et c'est une reponse, pas une panne.
+ */
+function waitUntilLegal(wins, t) {
+  if (!wins || inWindows(wins, t)) return 0;
+  let best = null;
+  for (const [a] of wins) if (a > t && (best === null || a < best)) best = a;
+  return best === null ? null : round1(best - t);
 }
 
 function label(a) {
@@ -1572,10 +1942,12 @@ function paintInspector() {
   if (v.scope) bits.push(v.scope);
   if (v.dur) bits.push(v.dur + " s");
   if (v.cd) bits.push("recast " + v.cd + " s" + (v.charges > 1 ? " ×" + v.charges : ""));
+  const comps = componentNames(a.abilityId, p ? p.job : "");
+  if (comps) bits.unshift(comps);
 
   el.hidden = false;
   el.innerHTML =
-    `<div class="hd">${abilityIcon(v, p ? p.job : "")}` +
+    `<div class="hd">${iconsFor(a.abilityId, p ? p.job : "", 4)}` +
       `<div><div class="nm">${esc(v.name)}</div>` +
       `<div class="sub">${esc(p ? whoOf(p) : "")} · ${esc(bits.join(" · "))}</div></div></div>` +
     `<div class="r"><label for="iSt">Start</label>` +
@@ -1642,6 +2014,78 @@ function laneUnder(x, y) {
   return el ? el.closest(".lane.job") : null;
 }
 
+/** Le poste vise, SANS en creer un : le modele ne doit bouger qu'au lacher. */
+function targetPid(tgt) {
+  if (!tgt) return "";
+  if (tgt.pid) return tgt.pid;
+  const p = S.doc.players.find((x) => x._slot === tgt.slot && x.job === tgt.job);
+  return p ? p.id : "";
+}
+
+/**
+ * Les fenetres ou la capacite a une charge, peintes dans la voie visee.
+ *
+ * Les bandes ne changent qu'au changement de colonne : sans le garde ci-dessous
+ * on les detruisait et on les reconstruisait a CHAQUE pointermove, soit une
+ * soixantaine de fois par seconde, juste au-dessus de la lecture forcee de
+ * `offsetTop`. Le cache de `drag.wins` evitait le calcul, pas le DOM.
+ */
+let legalLane = null, legalKey = "";
+
+function showLegal(lane, wins) {
+  const key = lane && wins ? wins.map((w) => w[0] + ":" + w[1]).join("|") : "";
+  if (lane === legalLane && key === legalKey) return;
+  clearLegal();
+  legalLane = lane; legalKey = key;
+  if (!lane || !wins) return;
+  let box = lane.querySelector(".okl");
+  if (!box) { box = document.createElement("div"); box.className = "okl"; lane.appendChild(box); }
+  box.innerHTML = wins.map(([a, b]) =>
+    `<div class="band" style="top:${yOf(a)}px;height:${Math.max(2, yOf(b - a))}px"></div>`).join("");
+  box.classList.add("on");
+}
+function clearLegal() {
+  legalLane = null; legalKey = "";
+  for (const b of document.querySelectorAll(".okl.on")) { b.classList.remove("on"); b.innerHTML = ""; }
+}
+
+/**
+ * Reporte la fenetre de la mitigation sur les colonnes du boss et allume ce
+ * qu'elle couvre. Les calques vivent DANS les voies epinglees, donc ils suivent
+ * leur defilement sans qu'on ait un seul repere a convertir.
+ *
+ * Un cast est couvert si son APPLICATION tombe dans la fenetre — pas le debut de
+ * son incantation : c'est a l'application que les degats arrivent.
+ */
+function showCover(t, dur) {
+  const on = dur > 0;
+  for (const id of ["lmech", "lcast"]) {
+    const lane = $(id);
+    if (!lane) continue;
+    let c = lane.querySelector(".cov");
+    if (!c) { c = document.createElement("div"); c.className = "cov"; lane.appendChild(c); }
+    c.style.top = yOf(t) + "px";
+    c.style.height = Math.max(2, yOf(dur)) + "px";
+    c.classList.toggle("on", on);
+  }
+  let n = 0;
+  for (const el of document.querySelectorAll("#lcast .cast")) {
+    const b = castOf(el.dataset.cast);
+    const hit = !!(b && on && b.time >= t && b.time <= t + dur);
+    el.classList.toggle("covhit", hit);
+    if (hit) n++;
+  }
+  for (const el of document.querySelectorAll("#lmech .mec")) {
+    const m = S.doc.fight.mechanics.find((x) => x.id === el.dataset.mech);
+    el.classList.toggle("covhit", !!(m && on && m.startTime < t + dur && m.endTime > t));
+  }
+  return n;
+}
+function clearCover() {
+  for (const c of document.querySelectorAll(".cov.on")) c.classList.remove("on");
+  for (const e of document.querySelectorAll(".covhit")) e.classList.remove("covhit");
+}
+
 function timeAt(clientY) {
   const r = $("lanes").getBoundingClientRect();
   return tOf(clientY - r.top);
@@ -1662,7 +2106,8 @@ function startDrag(e, kind, ref, from) {
   } else {
     const job = from ? jobOf(from.playerId) : jobOf(S.sel);
     const v = view(ref, job);
-    g.innerHTML = abilityIcon(v, job) + `<span>${esc(v.name)}</span><span class="tm">0:00</span>`;
+    g.innerHTML = iconsFor(ref, job, 3) + `<span>${esc(v.name)}</span>` +
+                  `<span class="tm">0:00</span><span class="cv"></span><span class="rd"></span>`;
   }
   document.body.appendChild(g);
 
@@ -1693,11 +2138,47 @@ function moveDrag(e) {
     const job = drag.tgt ? (drag.tgt.job || jobOf(drag.tgt.pid)) : "";
     drag.ok = !!drag.tgt && !!(drag.tgt.pid || (drag.tgt.slot && drag.tgt.job))
            && okForJob(drag.ref, job);
+
+    // Les fenetres ne dependent que du poste vise : on ne les recalcule qu'au
+    // changement de colonne, pas a chaque pixel de souris.
+    const pid = targetPid(drag.tgt);
+    if (pid !== drag.winPid) {
+      drag.winPid = pid;
+      drag.wins = pid ? recastWindows(pid, drag.ref, drag.from && drag.from.id) : null;
+    }
+    showLegal(drag.ok ? lane : null, drag.wins);
+    drag.ready = inWindows(drag.wins, drag.t);
+
+    const n = showCover(drag.t, view(drag.ref, job).dur || 0);
+    const cv = drag.ghost.querySelector(".cv");
+    if (cv) cv.textContent = n ? "▸ " + n + " cast" + (n > 1 ? "s" : "") : "";
+
+    // Ce qu'il reste a attendre a l'endroit vise. C'est la valeur qui compte
+    // pendant qu'on descend la tuile : elle tombe a zero quand on entre dans la
+    // fenetre. Un calque vide est une reponse, pas une panne — on le dit.
+    const rd = drag.ghost.querySelector(".rd");
+    if (rd) {
+      // Trois situations distinctes, qu'il ne faut surtout pas confondre :
+      // aucune fenetre nulle part, des fenetres mais toutes EN AMONT du curseur,
+      // et une attente vers l'aval. Le message unique d'avant annoncait « nulle
+      // part » alors qu'une bande verte s'etalait sous les yeux, en amont — cas
+      // ordinaire des qu'il reste moins d'un recast avant la fin du combat.
+      const w = waitUntilLegal(drag.wins, drag.t);
+      rd.textContent =
+          !drag.wins ? ""
+        : !drag.wins.length ? "no charge left anywhere"
+        : w === null ? "↑ free slots are earlier"
+        : w > 0 ? "available in " + fmtWait(w) : "";
+    }
   }
 
   const t = drag.t;
   drag.ghost.querySelector(".tm").textContent = fmt(t) + (t % 1 ? "." + Math.round((t % 1) * 10) : "");
-  drag.ghost.style.borderColor = drag.ok ? "var(--accent)" : "var(--bad)";
+  // Trois etats, pas deux : refuse, permis mais pas encore recharge, et bon.
+  // Poser hors fenetre reste possible — on construit parfois en sachant qu'on
+  // corrigera ensuite — mais ca ne doit pas passer inapercu.
+  drag.ghost.style.borderColor =
+    !drag.ok ? "var(--bad)" : (drag.ready === false ? "var(--now)" : "var(--accent)");
 
   // #snap vit dans #board, jamais repeint : #lanes est reconstruit a chaque
   // rendu et emporterait la ligne avec lui.
@@ -1711,6 +2192,7 @@ function endDrag(e) {
   window.removeEventListener("pointerup", endDrag);
   window.removeEventListener("keydown", cancelOnEsc, true);
   $("snap").hidden = true;
+  clearLegal(); clearCover();
   if (!drag) return;
   const d = drag;
   drag = null;
@@ -1759,6 +2241,7 @@ function cancelOnEsc(e) {
   drag.ghost.remove();
   drag = null;
   $("snap").hidden = true;
+  clearLegal(); clearCover();
 }
 
 // ======================================================================
@@ -1811,6 +2294,30 @@ function adoptPlayers(players) {
   });
 }
 
+/**
+ * Ce qu'un plan importe emploie et que la table ne connait pas, alias compris.
+ *
+ * C'est le signal qu'une action generique est arrivee sous un nom nouveau —
+ * « party_mitigation » la ou la table dit « tank_party_mit » — et qu'il faut
+ * aller la rattacher dans admin/. Sans ce compte, elle passait en pastille grise
+ * sans que rien ne le dise.
+ */
+function unknownAbilities() {
+  const out = new Set();
+  for (const a of S.doc.assignments) {
+    if (!S.map.abilities[resolveId(a.abilityId)]) out.add(a.abilityId);
+  }
+  return [...out];
+}
+
+function importedToast(head) {
+  const unk = unknownAbilities();
+  toast(head + (unk.length
+    ? ` — ${unk.length} unknown ability id${unk.length > 1 ? "s" : ""} (` +
+      unk.slice(0, 3).join(", ") + (unk.length > 3 ? "…" : "") + "). Map them in admin/."
+    : ""), unk.length > 0);
+}
+
 async function importCode(raw) {
   const code = extractCode(raw);
   if (!code) { toast("Link or code not recognised.", true); return; }
@@ -1839,7 +2346,7 @@ async function importCode(raw) {
     S.sel = null; S.pick = null;
     $("dlgImport").close();
     paintAll(); save();
-    toast(`${code} — ${S.doc.players.length} players, ${S.doc.assignments.length} assignments.`);
+    importedToast(`${code} — ${S.doc.players.length} players, ${S.doc.assignments.length} assignments`);
   } catch (e) {
     toast(e.message, true);
   }
@@ -1865,6 +2372,13 @@ async function importFight(id) {
     toast(e.message, true);
   }
 }
+
+// PLAN-IO v1 — meme copie que index.html. Voir le journal la-bas ; toute
+// modification d'une de ces fonctions doit etre reportee ici aussi.
+//
+// Journal :
+//   2026-08-15  author preserve a l'export ; limite de 4 Mo alignee sur le
+//               prompteur a l'import de fichier.
 
 /** Meme validation que le prompteur : ce qui passe ici se chargera la-bas. */
 function validatePlanDoc(d) {
@@ -1900,7 +2414,12 @@ function validatePlanDoc(d) {
   });
 }
 
+// PLAN-IO v1 : meme limite que index.html ; ces fichiers s'ecrivent a la main,
+// rien de legitime n'en approche.
+const MAX_PLAN_FILE = 4 * 1024 * 1024;
+
 function importFile(text, filename) {
+  if (text.length > MAX_PLAN_FILE) { toast("Plan file rejected — larger than 4 MB.", true); return; }
   let d;
   try { d = JSON.parse(text); } catch (e) { toast("Invalid JSON: " + e.message, true); return; }
   try { validatePlanDoc(d); } catch (e) { toast("Plan file rejected — " + e.message, true); return; }
@@ -1911,7 +2430,7 @@ function importFile(text, filename) {
   S.sel = null; S.pick = null;
   $("dlgImport").close();
   paintAll(); save();
-  toast(`${S.doc.players.length} players, ${S.doc.assignments.length} assignments.`);
+  importedToast(`${S.doc.players.length} players, ${S.doc.assignments.length} assignments`);
 }
 
 // ======================================================================
@@ -1930,6 +2449,7 @@ function planToDoc() {
   return {
     format: "mitigoke-plan/1",
     title: S.doc.title || "Plan",
+    author: S.doc.author || "",
     updated: new Date().toISOString().slice(0, 10),
     _source: "Built with the Mitigoke plan creator on " + new Date().toISOString().slice(0, 10) + ".",
     fight: {
@@ -1962,6 +2482,7 @@ function planToText(d) {
     "{",
     '  "format": ' + JSON.stringify(d.format) + ",",
     '  "title": ' + JSON.stringify(d.title) + ",",
+    d.author ? '  "author": ' + JSON.stringify(d.author) + "," : null,
     '  "updated": ' + JSON.stringify(d.updated) + ",",
     '  "_source": ' + JSON.stringify(d._source) + ",",
     "",
@@ -1985,7 +2506,7 @@ function planToText(d) {
     '  "abilities": {}',
     "}",
     "",
-  ].join("\n");
+  ].filter((l) => l !== null).join("\n");
 }
 
 function exportPlan() {
@@ -2374,7 +2895,8 @@ function removeFightRow(key) {
 
   // mapping.json est un fichier statique : Apache le sert sans faire tourner PHP.
   const map = await fetch("../mapping.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  S.map = { jobs: (map && map.jobs) || {}, abilities: (map && map.abilities) || {} };
+  S.map = { jobs: (map && map.jobs) || {}, abilities: (map && map.abilities) || {},
+            aliases: (map && map.aliases) || {} };
   if (!map) toast("mapping.json is unreachable — names and icons will be missing.", true);
 
   // mapping.json porte desormais recast, charges, nature et portee : le

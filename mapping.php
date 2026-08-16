@@ -144,9 +144,92 @@ foreach ($doc['abilities'] as $id => $entry) {
         $doc['abilities'][$id][$k] = $v;
     }
 
+    // `components` : les sorts qu'une action GENERIQUE designe reellement.
+    // « Kitchen Sink », « Party Mit », « Buddy Mit » ne sont pas des actions du
+    // jeu mais des raccourcis de langage, et selon le job ce sont deux ou trois
+    // boutons differents. Deux formes acceptees, parce que les deux s'ecrivent
+    // naturellement a la main :
+    //
+    //   "components": ["war_rampart", "war_vengeance"]           tous jobs
+    //   "components": { "WAR": [...], "*": [...] }               par job
+    //
+    // On ne verifie PAS que les identifiants vises existent : la table s'edite
+    // entree par entree, et refuser une composition parce que son dernier
+    // composant n'est pas encore saisi bloquerait le travail en cours.
+    if (isset($entry['components'])) {
+        $c = $entry['components'];
+        if (!is_array($c) || count($c) === 0) {
+            unset($doc['abilities'][$id]['components']);
+        } elseif (array_is_list($c)) {
+            foreach ($c as $cid) {
+                if (!is_string($cid) || !preg_match('/^[a-z0-9_]{1,64}$/', $cid)) {
+                    fail(400, "\"components\" holds an invalid ability id for $id.");
+                }
+            }
+        } else {
+            // Une ligne vide est un job que l'editeur vient d'ouvrir et qu'on
+            // n'a pas rempli : on l'elague ici plutot que de la stocker.
+            $kept = [];
+            foreach ($c as $job => $list) {
+                if (!preg_match('/^([A-Z]{3}|\*)$/', (string) $job)) {
+                    fail(400, "\"components\" key \"$job\" must be a 3-letter job or \"*\" for $id.");
+                }
+                if (!is_array($list) || !array_is_list($list)) {
+                    fail(400, "\"components\" for $id / $job must be a list of ability ids.");
+                }
+                foreach ($list as $cid) {
+                    if (!is_string($cid) || !preg_match('/^[a-z0-9_]{1,64}$/', $cid)) {
+                        fail(400, "\"components\" holds an invalid ability id for $id / $job.");
+                    }
+                }
+                if (count($list) > 0) {
+                    $kept[$job] = array_values($list);
+                }
+            }
+            if (count($kept) === 0) {
+                unset($doc['abilities'][$id]['components']);
+            } elseif (count($kept) === 1 && isset($kept['*'])) {
+                $doc['abilities'][$id]['components'] = $kept['*'];
+            } else {
+                $doc['abilities'][$id]['components'] = $kept;
+            }
+        }
+    }
+
     // Tout autre champ passe intact. C'est deliberé : la table est partagee par
     // deux sessions, et rejeter une cle inconnue ferait echouer la sauvegarde de
     // l'une des deux des que l'autre ajoute quelque chose.
+}
+
+/**
+ * `aliases` : deux noms pour la meme action.
+ *
+ * L'amont ecrit parfois « party_mitigation » la ou la table dit
+ * « tank_party_mit », et un plan importe arrive avec celui qu'il a. Ce
+ * dictionnaire au niveau du document rattache l'un a l'autre.
+ *
+ * La CIBLE doit exister — un alias qui pointe dans le vide ne rattraperait
+ * rien et se decouvrirait par une pastille grise, sans un mot. La SOURCE, elle,
+ * n'a aucune raison d'exister : c'est justement l'identifiant inconnu.
+ */
+if (isset($doc['aliases'])) {
+    if (!is_array($doc['aliases'])) {
+        fail(400, '"aliases" must be an object of { unknownId: knownId }.');
+    }
+    foreach ($doc['aliases'] as $from => $to) {
+        if (!is_string($from) || !preg_match('/^[a-z0-9_]{1,64}$/', (string) $from)) {
+            fail(400, "Invalid alias source: $from");
+        }
+        if (!is_string($to) || !preg_match('/^[a-z0-9_]{1,64}$/', $to)) {
+            fail(400, "Invalid alias target for $from.");
+        }
+        if (!isset($doc['abilities'][$to])) {
+            fail(400, "Alias \"$from\" points at unknown ability \"$to\".");
+        }
+    }
+    if (count($doc['aliases']) === 0) {
+        unset($doc['aliases']);
+    }
 }
 
 foreach ((array) ($doc['jobs'] ?? []) as $job => $j) {

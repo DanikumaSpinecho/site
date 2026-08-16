@@ -154,7 +154,15 @@ change is live for everyone the moment the editor saves.
   the prompter: translating a community term would make it unrecognisable. 24 entries.
 
 Read by the **planner** only, added 2026-08-15, all optional and all invisible to the prompter
-(see the changelog entry for how they were filled):
+(see the changelog entries for how they were filled):
+
+- **`components`** — the real actions a *generic label* stands for. Either a flat list, or one
+  list per job with `"*"` as the fallback. See the 0.0.6 entry below.
+
+And one key at the **document level**, next to `abilities`:
+
+- **`aliases`** — `{ unknownId: knownId }`, for when a plan arrives under a name the table does
+  not use. The target must exist; the source is precisely the id that does not.
 
 - **`type`** — `mitigation`, `heal`, `shield`, `invuln`, `utility`. Upstream's own vocabulary.
 - **`scope`** — `party`, `self`, `single`, `enemy`.
@@ -203,6 +211,60 @@ normal path is to edit in `/admin/`.
 
 Newest first. **Anything that changes the table's shape, its contents or the rules above
 gets a line here**, so the other side knows what to take into account.
+
+### 2026-08-15 — generic labels and aliases, v0.0.6 (planner session)
+
+**Two new optional keys, both additive, both invisible to the prompter.** No existing field was
+renamed, removed or changed, and `mapping.json` itself was **not rewritten** — this entry changes
+what the table is *allowed* to carry, not what it currently holds. The live table still has 158
+entries, 0 with components and no `aliases` block; filling them is done in `/admin/`.
+
+| key | where | shape |
+|---|---|---|
+| `components` | on an ability | `["war_rampart", …]` **or** `{ "WAR": [...], "*": [...] }` |
+| `aliases` | on the document, next to `abilities` | `{ "party_mitigation": "tank_party_mit" }` |
+
+- **`components` is for generic labels only.** “Kitchen Sink”, “Party Mit”, “Buddy Mit” are not
+  actions in the game, they are shorthand — and depending on the job they mean two or three
+  different buttons. This is also why five entries legitimately have **no icon at all**: it is
+  their components that have one. The planner now draws those icons instead of a grey chip, and
+  lists their names in the tooltip, the palette and the inspector.
+- **`"*"` means “same for every job”**, a per-job key overrides it for that job. Both the flat
+  list and the object are accepted because both are what someone writes by hand; `mapping.php`
+  normalises to the simplest form that says the same thing, and **prunes empty lists** — the
+  editor creates one when you open a job line, and an unfilled line must not be stored.
+- **Component ids are NOT checked against the table by the writer.** The table is edited entry by
+  entry, and refusing a composition because its last component is not typed yet would block the
+  work in progress. The *editor* does check, turns the field red and drops the unknown token
+  while keeping every valid one on the line — a refused value never disappears in silence.
+- **`aliases` targets are checked**, and must exist. An alias into the void would rescue nothing
+  and would be discovered as a grey chip, without a word. The source, on the contrary, has no
+  reason to exist — it is the unknown id. The planner only consults `aliases` when the id is
+  **not** a real entry, so a mistyped alias can never shadow an existing ability.
+
+**`admin/index.html`** — the green `+` panel now ends with a **Components** block: one line per
+job, `all` first, a job picker fed by the roles in `mapping.json` (no hard-coded job list), and a
+live thumbnail strip. A new **Aliases…** toolbar button opens a dialog listing every upstream id
+absent from the table — click one to fill the source field. The button carries a count badge when
+there are any. New filter: `Generic (components)`. The stat line gained `N generic · N aliases`.
+The upstream catalogue is now fetched once at load, only to compute that badge; `api.php` caches
+it 24 h, so it does not reach upstream.
+
+**`plan_creator/`** — reads both keys, and warns after an import when a plan uses ids the table
+does not know (alias resolution included), naming the first three. That was previously silent.
+The header now reads **MITIGOKE**, linking back to the prompter, with `by danikuma SPINECHO`
+underneath.
+
+**`index.html` — one line touched, by the planner session.** Its `<title>` gained ` 0.0.6`, so
+both pages carry the version in the browser tab. Nothing else in that file was read from, written
+to, or reformatted. It was checked byte-for-byte identical between the working copy and the server
+immediately before and after, so nothing of the prompter session's could have been overwritten.
+Said here because that file is normally off-limits to this side.
+
+Verified on the reference plan (UMAD-G0FF1B, 329 assignments): cast box heights match
+`castTime × px` to 0.006 px, the four pinned columns align header-to-lane exactly, and across all
+**329 ability icons there are 0 overlapping pairs** at a cascade depth of 6 — the maximum the
+layout allows, actually reached by this plan.
 
 ### 2026-08-15 — planner fields, seven new keys (planner session)
 

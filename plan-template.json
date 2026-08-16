@@ -3,6 +3,7 @@
 
   "format": "mitigoke-plan/1",
   "title": "My plan",
+  "_doc_author": "Optional, free text. Preserved on export by both the prompter and the plan creator since 0.0.6; ignored if empty.",
   "author": "",
   "updated": "2026-08-10",
 

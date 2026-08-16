@@ -251,18 +251,37 @@ without giving up the stale-cache fallback.
 ## Known limitations
 
 - **Background tabs.** Browsers throttle `setInterval` to about 1 Hz in a hidden tab, and
-  far harder after a few minutes without audio. The clock itself never drifts — it is
+  down to once a minute after five minutes. The clock itself never drifts — it is
   recomputed from `performance.now()` on every pass, never incremented, which is exactly
-  why `requestAnimationFrame` is not used — but the display and the beep can lag by a
-  second or more. Keep the window visible.
-- **Expired rooms.** A follower whose room has expired keeps polling and is not told; the
-  clock carries on from the last known state.
+  why `requestAnimationFrame` is not used. Since 0.0.6 the **beeps no longer lag either**:
+  they are scheduled ahead on the audio clock, which is not throttled. The *display* still
+  lags in a hidden window, and that is left alone — a window you cannot see is a window you
+  are not reading.
 - Party sync has been verified between two clients, not yet across a full group of eight.
 - `mapping.json` can be edited live from `/admin/`, so a deployed copy may drift from the
   one in this repository.
 - `/admin/` is built for a desktop screen; the prompter itself is not.
 
 ## Version
+
+**0.0.6**
+
+- **One plan format, one implementation.** Validation and export had been duplicated
+  between the prompter and the plan creator and had drifted apart on nine points — most
+  seriously, a plan carrying `damageType`/`damage` lost them silently on a round trip
+  through the prompter. Both pages now carry the same canonical `PLAN-IO v1` block, with a
+  dated log in each; `author` is preserved, empty strings are dropped consistently, and a
+  missing `duration` or missing ids are filled in without ever overwriting explicit ones.
+- **A lost room now says so.** A follower whose room had expired used to poll into the void
+  forever. The two cases are told apart: the server *answering* that the room is gone is
+  reported at once, while a request that simply fails waits three attempts, because a
+  dropped packet is not a deleted room. Either way the clock keeps running — it is anchored
+  on a server-dated instant, so it stays correct — and a **Continue on my own** button turns
+  the dead room into a local clock without shifting a single cue.
+- **Beeps that survive a background tab.** They are scheduled ahead on the audio clock,
+  which browsers do not throttle, instead of being fired by a throttled timer. Measured: a
+  note aimed at 1.500 s played at 1.571 s — 1 ms off — with the JavaScript thread
+  deliberately blocked for 900 ms.
 
 **0.0.5**
 
