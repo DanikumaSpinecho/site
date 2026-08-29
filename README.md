@@ -116,16 +116,20 @@ careless copy-paste does not hand control to the whole party.
 ## Ability names and icons
 
 `mapping.json` is the single source: display name in English, French, German and Japanese,
-plus an icon path, for each of the 153 abilities in the upstream catalogue.
+plus an icon path, for each of the 158 abilities in the table — the 153 the upstream
+catalogue lists, plus five added by hand.
 
 Three mechanisms stack:
 
 - **direct icon** — the common case;
 - **per-job icon** — for generic role entries. *Invuln* has no artwork of its own, but
   Hallowed Ground, Holmgang, Living Dead and Superbolide do;
-- **fallback** — a role-coloured chip with the first three letters of the job.
+- **fallback** — none, in the queue: the icon cell is simply left empty, as a spacer. Eight
+  generic entries carry only per-job icons, so a slot typed by *role* rather than by job
+  (`TANK`, `RANGED`) shows no artwork — on the reference plan that is 12 of a main tank's 27
+  cues. The ability name is still there; only the picture is missing.
 
-That fallback is deliberate: **no job list is hard-coded anywhere**. Jobs come from the
+The per-job mechanism is deliberate: **no job list is hard-coded anywhere**. Jobs come from the
 upstream API, icons from `mapping.json`. When a new job ships it works immediately, with a
 chip instead of artwork, and gains its icon whenever one is added. Icon folders are matched
 by their `_JOB` suffix and never by their number, which a new job could shift.
@@ -145,8 +149,9 @@ Twenty-two abilities have no duration on purpose. Benediction, Lustrate, Assize,
 Tetragrammaton and the rest are instant heals, and Provoke and Shirk are pure utility:
 there is nothing to keep on screen.
 
-Edit any of this at **`/admin/`**: a table of every ability, with filters, an icon picker,
-per-language name fields and the duration column.
+Edit any of this at **`/admin/`** — password-protected, and not linked from the public
+page: a table of every ability, with filters, an icon picker, per-language name fields and
+the duration column.
 
 ## Loading a plan from a file
 
@@ -209,15 +214,18 @@ api.php?plan=UMAD-G0FF1B   the shared plan       (cached 300 s, 3600 s if hot)
 api.php?plan=…&refresh=1   the same, re-read from upstream
 api.php?fight=umad         the fight             (cached 86400 s)
 api.php?abilities=1        the ability catalogue (cached 86400 s)
-api.php?popular=1          the most-requested plans on this host
 
 sync.php?now=1             server time (calibration probe)
 sync.php?room=ID           room state
-POST sync.php              {action: create|state}
+POST sync.php              {action: create|state|hello}
 
-POST mapping.php           writes mapping.json, from /admin/
-icons.php?q=reprisal       icon search, for /admin/
+POST admin/mapping.php     writes mapping.json          (behind the admin password)
+admin/icons.php?q=reprisal icon search, for /admin/     (behind the admin password)
 ```
+
+The two writing endpoints sit **inside `admin/`** so that one directory password covers
+them. A ranking of the most-requested plans still drives the long cache, but it is no
+longer readable from outside: it named other people's plan codes.
 
 `api.php` exists because the upstream API sends no CORS headers, so the browser cannot call
 it directly. It has fixed actions and no free-form path: **no arbitrary URL can be
@@ -233,20 +241,28 @@ without giving up the stale-cache fallback.
 
 ### Before you expose this publicly
 
-- **`/admin/` and `mapping.php` ship unauthenticated.** Anyone who knows the address can
-  rewrite the mapping table. Icon paths are validated and every write is backed up, but
-  put a password on both — via your host's directory protection, or by setting
-  `MAPPING_TOKEN` in `mapping.php` — before the site is reachable by strangers.
-- The site ships configured to **never be indexed**: `noindex` on every response,
-  User-Agent blocking for AI and SEO crawlers, and a `robots.txt` that deliberately *lets
-  search engines fetch* so they can read the `noindex`. A blanket `Disallow: /` would stop
-  them reading it, and a URL nobody may crawl can still be listed. Drop these if you want
-  a public, indexable deployment.
+- **Put a password on `/admin/`.** Everything that writes lives there — `admin/mapping.php`
+  edits the ability table, `admin/icons.php` walks the image tree. Use your host's directory
+  protection. Two further locks are already in place and neither replaces it: a write token
+  in `admin/token.php` + `admin/token.js` (both git-ignored — a fresh clone has none, so the
+  token check is simply off until you create them), and a refusal of cross-origin writes.
+  That last one matters *because* of the password: once a browser is authenticated it
+  attaches the credentials by itself, so a form posted from a booby-trapped page would
+  otherwise be written straight through.
+- The site ships **indexable**. It spent its early life under a blanket `noindex` because it
+  was private; that was reversed on 2026-08-28. `robots.txt` allows everything except
+  `/admin/`, which also keeps an `X-Robots-Tag: noindex` set by the root `.htaccess` on
+  anything under `/admin`. If you want a private deployment again, put the `noindex` back on
+  every response — a `Disallow` alone will not do it, since a URL nobody may crawl can still
+  be listed.
+- **A shared plan file is untrusted input.** Its optional `abilities` block can redefine any
+  icon; a path pointing at a third-party server would make every player's browser call it.
+  Icon paths from a plan file are filtered on load, and the Content-Security-Policy blocks
+  it a second time in the browser.
 - If your host puts a CDN in front of static files, images may bypass `.htaccess` and lose
   those headers. Check, or disable the CDN for the host.
-- **`api.php?popular=1` returns plan codes in the clear.** They are already public upstream
-  and tied to no one, but they are unguessable — publishing them on an open endpoint makes
-  them guessable. Close it alongside `mapping.php` if that matters to you.
+- The room-creation endpoint is rate-limited per requester (12 per hour), on top of the
+  global cap. The address is hashed with the hour, so it counts without keeping a log.
 
 ## Known limitations
 

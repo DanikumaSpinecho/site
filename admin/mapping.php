@@ -15,11 +15,27 @@
 
 declare(strict_types=1);
 
-const MAPPING_FILE  = __DIR__ . '/mapping.json';
-const BACKUP_DIR    = __DIR__ . '/.mapping-backups';
+// Le jeton est tenu hors du depot : ce fichier-ci part sur GitHub, pas lui.
+// Absent, le jeton est vide et n'est pas reclame — c'est le mode developpement.
+define('TOKEN_FILE_LOADED', is_file(__DIR__ . '/token.php') ? (string) require __DIR__ . '/token.php' : '');
+
+// Ce script vit dans admin/ depuis le 28 aout 2026, pour que la protection par
+// mot de passe du dossier le couvre. La table, elle, reste a la RACINE : c'est
+// un fichier statique que le prompteur et le planificateur lisent sans PHP.
+const MAPPING_FILE  = __DIR__ . '/../mapping.json';
+const BACKUP_DIR    = __DIR__ . '/../.mapping-backups';
 const MAX_BODY      = 1048576;   // 1 Mo : la table en fait 30 ko
 const KEEP_BACKUPS  = 10;
-const MAPPING_TOKEN = '';        // vide = ouvert (developpement)
+// Jeton d'ecriture. DEUXIEME serrure, pas la premiere : la premiere est le mot de
+// passe du dossier admin/, pose cote hebergeur. Celle-ci existe parce que le site
+// est devenu public le 28 aout 2026 et que la fenetre entre « en ligne » et
+// « protege » ne devait pas rester ouverte. Elle sert aussi de filet si la
+// protection du dossier saute un jour, a une migration ou a une mise a jour.
+//
+// Le jeton voyage dans l'en-tete X-Mapping-Token, pose par admin/index.html. Il
+// n'a de valeur que tant qu'il n'est pas lisible publiquement : il vit dans un
+// dossier protege, et il ne doit jamais partir sur GitHub.
+const MAPPING_TOKEN = TOKEN_FILE_LOADED;
 
 /**
  * Champs numeriques connus, avec leur borne haute. Un champ absent de cette
@@ -50,6 +66,38 @@ function fail(int $code, string $message): never {
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     fail(405, 'POST expected.');
+}
+
+/**
+ * Refus des ecritures venues d'ailleurs (CSRF).
+ *
+ * Ce script est desormais derriere le mot de passe du dossier admin/. C'est ce
+ * qui le protege — mais c'est aussi ce qui cree le risque : une fois
+ * l'administrateur authentifie, son navigateur JOINT SES IDENTIFIANTS TOUT SEUL a
+ * toute requete vers ce chemin, y compris a un formulaire poste depuis une page
+ * piegee ouverte dans un autre onglet. Le mot de passe ne distingue pas une
+ * ecriture voulue d'une ecriture provoquee.
+ *
+ * Un fetch() venu d'une autre origine serait deja arrete par le controle de
+ * pre-vol, puisque le corps est du JSON. Un <form> ordinaire, lui, ne declenche
+ * aucun pre-vol et passerait : ce script lit php://input sans regarder le
+ * Content-Type. D'ou ce controle, qui refuse tout ce qui n'est pas de chez nous.
+ *
+ * Sec-Fetch-Site est envoye par tous les navigateurs a jour ; Origin sert de
+ * repli. Absence des deux : requete hors navigateur (curl, un test), acceptee —
+ * elle n'emporte aucun identifiant automatique, donc aucun risque de CSRF.
+ */
+$site = (string) ($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '');
+if ($site !== '' && $site !== 'same-origin' && $site !== 'none') {
+    fail(403, 'Cross-site write refused.');
+}
+$origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
+if ($origin !== '') {
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    $expected = ['https://' . $host, 'http://' . $host];
+    if (!in_array($origin, $expected, true)) {
+        fail(403, 'Cross-origin write refused.');
+    }
 }
 
 if (MAPPING_TOKEN !== '') {

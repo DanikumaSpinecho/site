@@ -1,61 +1,80 @@
 # Mitigoke — configuration Apache/LiteSpeed (Hostinger)
 # Ce dossier EST la racine web du sous-domaine : son contenu est copie tel quel.
+#
+# CHANGEMENT DE CAP, 28 aout 2026. Le site a passe sa vie sous « noindex » : il
+# etait prive. Il est desormais public et cherche a etre trouve. Ce fichier a donc
+# ete refait dans l'autre sens — mais la surface exposee, elle, a ete reduite au
+# meme moment : les deux scripts d'ecriture ont demenage dans admin/, et le point
+# d'entree qui rendait les codes de plan en clair a ete retire.
 
-# Pas de listing de repertoire
 Options -Indexes
 
-# --- Blocage de l'indexation ------------------------------------------------
-# En-tete HTTP applique a TOUTES les reponses, y compris les erreurs (« always »),
-# et pas seulement aux pages HTML : il couvre aussi mapping.json et les icones,
-# la ou une balise <meta> ne peut rien.
-#
-# C'est cet en-tete qui fait autorite, pas robots.txt : robots.txt ne fait
-# qu'empecher l'exploration, et une URL non explorable peut malgre tout etre
-# listee. Voir le commentaire en tete de robots.txt.
+# --- En-tetes -----------------------------------------------------------------
 <IfModule mod_headers.c>
-  Header always set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate"
 
-  # Ne pas divulguer notre adresse aux sites vers lesquels on pointe : sans cela,
-  # un clic vers xivmit.app ferait apparaitre ce domaine dans leurs statistiques.
-  Header always set Referrer-Policy "no-referrer"
+  # Politique de securite du contenu. La page est autonome : aucun script, aucune
+  # feuille, aucune image ne vient d'ailleurs. On l'ecrit dans l'en-tete, ce qui
+  # transforme cette propriete en garantie appliquee par le navigateur.
+  #
+  # 'unsafe-inline' est assume : le script et la feuille de style sont ECRITS DANS
+  # la page, c'est la forme meme du projet — un fichier qu'on edite et qu'on copie.
+  # Une empreinte devrait etre recalculee a chaque modification et finirait par
+  # etre oubliee un soir de deploiement. Ce qui compte est conserve : rien
+  # d'exterieur ne peut etre charge, et surtout `connect-src 'self'` empeche toute
+  # exfiltration vers un tiers, y compris via une icone pointee par un plan piege.
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; media-src 'self'"
 
-  # Ceintures et bretelles pendant qu'on y est.
+  # Le referent complet fuitait les chemins ; « no-referrer » privait xivmit.app de
+  # toute trace des visites qu'on lui envoie. Entre les deux : l'origine seule,
+  # et seulement vers du HTTPS. L'auteur de xivmit voit d'ou vient son trafic,
+  # nous ne divulguons aucun chemin.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+
+  # HTTPS uniquement. max-age volontairement court : une semaine se rattrape, deux
+  # ans se subissent. Pas de preload, qui ne se retire pas.
+  Header always set Strict-Transport-Security "max-age=604800"
+
+  # --- La seule zone qui reste hors des moteurs ------------------------------
+  # /admin/ est protege par mot de passe cote hebergeur. Ce noindex ne remplace pas
+  # ce mot de passe : il evite seulement que l'URL apparaisse dans un resultat, ce
+  # qu'un simple Disallow ne garantit pas.
+  SetEnvIf Request_URI "^/admin(/|$)" MITIGOKE_ADMIN
+  Header always set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet" env=MITIGOKE_ADMIN
 </IfModule>
 
-# --- Robots refuses a la porte ----------------------------------------------
-# robots.txt repose sur la bonne volonte du visiteur ; ceci n'en depend pas.
-# On ne bloque QUE des robots nommement identifies : surtout pas curl, wget ni
-# les bibliotheques HTTP generiques, qui servent aux verifications de sante.
-# Les moteurs de recherche, eux, sont laisses passer expres : c'est ainsi qu'ils
-# lisent le noindex ci-dessus et retirent l'URL.
+# --- Ce qui n'a rien a faire sur le web ---------------------------------------
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  RewriteCond %{HTTP_USER_AGENT} (GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|Google-Extended|Applebot-Extended|PerplexityBot|Perplexity-User|meta-externalagent|FacebookBot|Amazonbot|Bytespider|CCBot|cohere-ai|cohere-training-data-crawler|AI2Bot|Diffbot|DuckAssistBot|ImagesiftBot|Omgilibot|Omgili|PanguBot|Timpibot|Webzio|YouBot) [NC,OR]
-  RewriteCond %{HTTP_USER_AGENT} (AhrefsBot|SemrushBot|MJ12bot|DotBot|DataForSeoBot|BLEXBot|Barkrowler|PetalBot|serpstatbot|ZoominfoBot|SeekportBot|Screaming\ Frog|SiteAuditBot|MegaIndex|Sogou|Bytedance) [NC]
-  RewriteRule ^ - [F,L]
-
-  # --- Donnees de service : inaccessibles depuis le web ---------------------
   # .cache/           reponses mises en cache du proxy xivmit
-  # .sync/            salons de synchronisation d'equipe (contiennent l'empreinte
-  #                   de la cle du chef de groupe : rien a exposer)
+  # .sync/            salons d'equipe et compteurs de creation
   # .mapping-backups/ versions precedentes de la table de correspondance
-  # .git/             ce dossier EST un depot git : un transfert recursif un peu
-  #                   distrait suffirait a publier tout l'historique
+  # .git/             ce dossier EST un depot : un transfert recursif distrait
+  #                   suffirait a publier tout l'historique
   RewriteRule ^\.cache/ - [F,L]
   RewriteRule ^\.sync/ - [F,L]
   RewriteRule ^\.mapping-backups/ - [F,L]
   RewriteRule ^\.git($|/) - [F,L]
   RewriteRule ^\.gitattributes$ - [F,L]
+  RewriteRule ^\.gitignore$ - [F,L]
+
+  # Sauvegardes et residus : un fichier oublie ne doit pas devenir une page.
+  RewriteRule \.(bak|bak-[0-9-]+|tmp|orig|save|swp|sql|log)$ - [F,L]
+  RewriteRule ~$ - [F,L]
+
+  # Les fichiers du depot ne sont pas du contenu de site.
+  RewriteRule ^(README\.md|LICENSE)$ - [F,L]
 </IfModule>
 
 # --- Compression -------------------------------------------------------------
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript
   AddOutputFilterByType DEFLATE application/javascript application/json
-  AddOutputFilterByType DEFLATE image/svg+xml
+  AddOutputFilterByType DEFLATE image/svg+xml application/xml
 </IfModule>
 
 # --- Cache navigateur --------------------------------------------------------
@@ -67,7 +86,7 @@ Options -Indexes
     ExpiresDefault "access plus 30 days"
   </FilesMatch>
 
-  # La page du prompteur : jamais mise en cache, sinon les corrections ne sortent pas
+  # La page : jamais mise en cache, sinon les corrections ne sortent pas
   <FilesMatch "^index\.html$">
     ExpiresDefault "access plus 0 seconds"
     Header set Cache-Control "no-cache, must-revalidate"

@@ -8,7 +8,7 @@
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
 <meta name="referrer" content="no-referrer" />
 <meta name="robots" content="noai, noimageai" />
-<title>Mitigoke — ability mapping 0.0.6</title>
+<title>Mitigoke — ability mapping 0.0.7</title>
 <style>
   :root {
     --bg: #0a0e13; --panel: #141b24; --line: #253243; --text: #e6edf5;
@@ -20,6 +20,39 @@
   .wrap { max-width: 1500px; margin: 0 auto; padding: 20px 18px 80px; }
   h1 { font-size: 1.25rem; margin: 0 0 2px; }
   .sub { color: var(--muted); font-size: .87rem; margin-bottom: 18px; }
+
+  /* Meme signature que le planificateur : les deux outils doivent se
+     reconnaitre au premier coup d'oeil. */
+  .brand { font-weight: 700; letter-spacing: .01em; white-space: nowrap; line-height: 1.15;
+           margin-bottom: 6px; }
+  .brand a { color: inherit; text-decoration: none; letter-spacing: .04em; }
+  .brand a:hover { color: var(--accent); }
+  .brand span { color: var(--muted); font-weight: 400; font-size: .85rem; }
+  .brand small { display: block; font-weight: 400; font-size: .58rem;
+                 letter-spacing: .05em; color: #4a5b70; }
+
+  /* Liste de suggestions maison. Le <datalist> natif etait ingerable : rendu
+     impose par le navigateur, pose ou il voulait, hors du theme, et jamais
+     borne — 158 identifiants d'un coup. Ici elle est a nous : sous le champ,
+     aux couleurs du site, et coupee a AC_MAX. */
+  #ac {
+    position: fixed; z-index: 60; display: none; max-width: 460px;
+    background: var(--panel); border: 1px solid #33445a; border-radius: 8px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .6); padding: 3px;
+    max-height: 46vh; overflow-y: auto;
+  }
+  #ac.on { display: block; }
+  #ac .it {
+    display: flex; align-items: center; gap: 7px; padding: 4px 8px; border-radius: 5px;
+    cursor: pointer; font-size: .84rem; white-space: nowrap;
+  }
+  #ac .it span { overflow: hidden; text-overflow: ellipsis; }
+  #ac .it:hover, #ac .it.on { background: #24374a; }
+  #ac .it b { color: var(--accent); font-weight: 700; }
+  #ac .it img { width: 20px; height: 20px; border-radius: 4px; flex: 0 0 auto; background: #0e141c; }
+  #ac .more { padding: 4px 8px 2px; font-size: .72rem; color: var(--muted); }
+  .ver { font-size: .72rem; color: var(--muted); border: 1px solid var(--line);
+         border-radius: 10px; padding: 0 8px; margin-left: 10px; white-space: nowrap; }
   a { color: var(--accent); }
 
   .toolbar {
@@ -55,7 +88,8 @@
   .thumb.none { border: 1px dashed var(--line); }
   .iconcell { display: flex; align-items: center; gap: 8px; min-width: 320px; }
   .iconcell input { font-family: ui-monospace, Consolas, monospace; font-size: .74rem; }
-  .official { font-size: .74rem; color: var(--muted); white-space: nowrap; }
+  .official { display: block; font-size: .74rem; color: var(--muted); white-space: nowrap;
+              overflow: hidden; text-overflow: ellipsis; }
   .byjob { font-size: .72rem; color: var(--soon); white-space: nowrap; }
 
   /* Capacites generiques : « Party Mit » n'est pas la meme action selon le job.
@@ -128,11 +162,14 @@
 <body>
 <div class="wrap">
 
-  <h1>Ability mapping</h1>
+  <div class="brand"><a href="../" title="Back to the prompter">MITIGOKE</a>
+    <span>ability mapping</span><small>by danikuma SPINECHO</small></div>
   <div class="sub">
     Display name per language and icon, for every ability in the xivmit catalogue.
     Changes are written to <code>mapping.json</code>.
-    <a href="../">Back to the prompter</a>
+    <a href="../plan_creator/">Open the plan planner</a>
+    <span class="ver">v0.0.7</span>
+    <span class="ver">updated 2026-08-16 21:42</span>
   </div>
 
   <div class="toolbar">
@@ -166,7 +203,7 @@
         <th>日本語</th>
         <th style="width:78px" title="How long the effect lasts, in seconds. Drives the “still active” icon in the prompter.">Dur (s)</th>
         <th style="width:360px">Icon</th>
-        <th style="width:150px">Game action</th>
+        <th style="width:100px">Game action</th>
         <th style="width:40px" title="Damage type, shield, recast — everything the planner reads">More</th>
       </tr>
     </thead>
@@ -176,20 +213,6 @@
   <div class="note" id="foot"></div>
 </div>
 
-<!-- Suggestions, pas contraintes : mapping.php valide la forme du mot, pas une
-     liste fermee, pour qu'une valeur inventee un jour par l'amont passe. -->
-<datalist id="dl-type">
-  <option value="mitigation"></option><option value="heal"></option>
-  <option value="shield"></option><option value="invuln"></option>
-  <option value="utility"></option>
-</datalist>
-<datalist id="dl-scope">
-  <option value="party"></option><option value="self"></option>
-  <option value="single"></option><option value="enemy"></option>
-</datalist>
-
-<datalist id="dl-abilities"></datalist>
-
 <dialog id="aliases">
   <strong>Aliases</strong>
   <div class="sub" style="margin:4px 0 0">
@@ -198,9 +221,9 @@
     the source is precisely the id that does not.
   </div>
   <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
-    <input class="grow" id="aliasFrom" placeholder="unknown id" autocomplete="off" />
+    <input class="grow" id="aliasFrom" data-ac="unknown" placeholder="unknown id" autocomplete="off" />
     <span class="arr">→</span>
-    <input class="grow" id="aliasTo" list="dl-abilities" placeholder="known id" autocomplete="off" />
+    <input class="grow" id="aliasTo" data-ac="abilities" placeholder="known id" autocomplete="off" />
     <button id="aliasAdd">Add</button>
   </div>
   <div class="sub" id="aliasMsg" style="margin:6px 0 0;min-height:1.2em"></div>
@@ -225,6 +248,10 @@
   <div class="pick" id="pickResults"></div>
 </dialog>
 
+<!-- Jeton d'ecriture, hors du depot (voir .gitignore). Absent, la variable reste
+     indefinie et l'enregistrement echouera avec un message explicite : c'est
+     preferable a une page qui a l'air de marcher et ne sauvegarde rien. -->
+<script src="token.js"></script>
 <script>
 "use strict";
 
@@ -391,7 +418,7 @@ function parmField(e, key, label, unit, wide) {
   const v = e[key];
   const num = NUM[key] !== undefined;
   return `<div class="parm"><label>${esc(label)}</label>` +
-         `<input data-f="${esc(key)}"${num ? ` type="number" min="0" max="${NUM[key]}" step="${key === "cd" || key === "dur" ? "0.5" : "1"}"` : ` list="dl-${esc(key)}"`}` +
+         `<input data-f="${esc(key)}"${num ? ` type="number" min="0" max="${NUM[key]}" step="${key === "cd" || key === "dur" ? "0.5" : "1"}"` : ` data-ac="${esc(key)}"`}` +
          `${wide ? ' class="wide"' : ""} value="${v === undefined ? "" : esc(v)}" placeholder="—" />` +
          `<span class="u">${esc(unit || "")}</span></div>`;
 }
@@ -457,7 +484,7 @@ function compBlock(id, e) {
     return `<div class="compline">` +
              `<span class="jobcode">${esc(j === "*" ? "all" : j)}</span>` +
              `<span class="cthumbs">${compThumbs(ids, j)}</span>` +
-             `<input data-cf="${esc(j)}" value="${esc(ids.join(" "))}" ` +
+             `<input data-cf="${esc(j)}" data-ac="abilities" value="${esc(ids.join(" "))}" ` +
                `placeholder="ability ids, separated by spaces" />` +
            `</div>`;
   }).join("");
@@ -502,14 +529,14 @@ function draw() {
       `<tr data-id="${esc(id)}">` +
         `<td class="id">${esc(id)}</td>` +
         `<td class="job">${esc(e.job || "")}</td>` +
-        `<td><input data-f="en" value="${esc(e.en || "")}" /></td>` +
-        `<td><input data-f="fr" value="${esc(e.fr || "")}" /></td>` +
-        `<td><input data-f="de" value="${esc(e.de || "")}" /></td>` +
-        `<td><input data-f="ja" value="${esc(e.ja || "")}" /></td>` +
+        `<td><input data-f="en" data-ac="name-en" value="${esc(e.en || "")}" /></td>` +
+        `<td><input data-f="fr" data-ac="name-fr" value="${esc(e.fr || "")}" /></td>` +
+        `<td><input data-f="de" data-ac="name-de" value="${esc(e.de || "")}" /></td>` +
+        `<td><input data-f="ja" data-ac="name-ja" value="${esc(e.ja || "")}" /></td>` +
         `<td><input data-f="dur" type="number" min="0" max="600" step="0.5" ` +
           `value="${e.dur === undefined ? "" : esc(e.dur)}" placeholder="—" /></td>` +
         `<td><div class="iconcell">${thumb}` +
-          `<input data-f="icon" value="${esc(icon)}" placeholder="none" />` +
+          `<input data-f="icon" data-ac="icons" value="${esc(icon)}" placeholder="none" />` +
           `<button data-act="pick">…</button>` +
           `<button class="expand${expanded.has(id) ? " on" : ""}" data-act="expand" ` +
             `title="Assign a different ability per job">+</button>` +
@@ -662,7 +689,7 @@ async function searchIcons() {
   const box = $("pickResults");
   if (q.length < 2) { box.innerHTML = ""; return; }
   try {
-    const d = await (await fetch("../icons.php?q=" + encodeURIComponent(q))).json();
+    const d = await (await fetch("icons.php?q=" + encodeURIComponent(q))).json();
     box.innerHTML = (d.results || [])
       .map((p) => `<figure data-p="${esc(p)}"><img src="../${esc(p)}" alt="" loading="lazy" />` +
                   `<figcaption title="${esc(p)}">${esc(p.split("/").pop().replace(/\.\w+$/, ""))}</figcaption></figure>`)
@@ -706,6 +733,174 @@ $("pickClear").addEventListener("click", () => {
 $("pickClose").addEventListener("click", () => $("picker").close());
 
 // ----------------------------------------------------------------------
+//  Suggestions de saisie : noms, icones, identifiants.
+// ----------------------------------------------------------------------
+function populateSuggestions() {
+  const ab = DOC.abilities || {};
+  const langs = { en: [], fr: [], de: [], ja: [] };
+  const icons = new Set();
+  for (const e of Object.values(ab)) {
+    for (const l of Object.keys(langs)) if (e[l]) langs[l].push(e[l]);
+    if (e.icon) icons.add(e.icon);
+    if (e.byJob) for (const p of Object.values(e.byJob)) if (p) icons.add(p);
+  }
+  for (const l of Object.keys(langs)) AC["name-" + l] = [...new Set(langs[l])].sort();
+  AC.icons = [...icons].sort();
+  AC.abilities = Object.keys(ab).sort();
+}
+
+// ----------------------------------------------------------------------
+//  Suggestions de saisie — liste maison
+// ----------------------------------------------------------------------
+// Le <datalist> natif rendait une liste dessinee par le navigateur, posee ou il
+// voulait, hors du theme, et jamais bornee : 158 identifiants d'un coup. Celle-ci
+// est a nous — sous le champ, aux couleurs du site, coupee a AC_MAX, avec la
+// portion saisie mise en evidence.
+const AC_MAX = 10;
+const AC = {
+  type: ["mitigation", "heal", "shield", "invuln", "utility"],
+  scope: ["party", "self", "single", "enemy"],
+  "name-en": [], "name-fr": [], "name-de": [], "name-ja": [],
+  icons: [], abilities: [], unknown: [],
+};
+
+let acBox = null, acInput = null, acIndex = -1;
+// Le choix d'une suggestion doit emettre `input` pour que DOC se mette a jour —
+// mais cet evenement est justement celui qui ouvre la liste. Sans ce drapeau,
+// elle se rouvrait sur la valeur qu'on venait de choisir, et ne se fermait
+// jamais.
+let acPicking = false;
+
+/** Le champ des composants porte PLUSIEURS identifiants : on ne complete que le dernier. */
+const acMulti = (inp) => inp.dataset.cf !== undefined;
+const acQuery = (inp) => {
+  const v = inp.value;
+  return (acMulti(inp) ? v.split(/[\s,]+/).pop() : v).trim().toLowerCase();
+};
+
+function acEl() {
+  if (acBox) return acBox;
+  acBox = document.createElement("div");
+  acBox.id = "ac";
+  // Empeche le champ de perdre le focus avant que le clic ne soit traite :
+  // sinon `focusout` fermerait la liste et le clic tomberait dans le vide.
+  acBox.addEventListener("mousedown", (ev) => ev.preventDefault());
+  acBox.addEventListener("click", (ev) => {
+    const it = ev.target.closest(".it");
+    if (it) acPick(it.dataset.v);
+  });
+  document.body.appendChild(acBox);
+  return acBox;
+}
+
+function acHide() {
+  if (acBox) acBox.classList.remove("on");
+  acInput = null; acIndex = -1;
+}
+
+function acPick(v) {
+  const inp = acInput;
+  if (!inp) return;
+  if (acMulti(inp)) {
+    const parts = inp.value.split(/([\s,]+)/);          // separateurs conserves
+    let last = parts.length - 1;
+    while (last > 0 && /^[\s,]+$/.test(parts[last])) last--;
+    parts[last] = v;
+    inp.value = parts.join("") + " ";
+  } else {
+    inp.value = v;
+  }
+  // Les gestionnaires d'edition ecoutent `input` : sans cet evenement, DOC ne
+  // serait pas mis a jour et la saisie serait perdue au prochain rendu.
+  acPicking = true;
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+  acPicking = false;
+  acHide();
+  inp.focus();
+}
+
+function acShow(inp) {
+  if (acPicking) return;
+  const pool = AC[inp.dataset.ac] || [];
+  const q = acQuery(inp);
+  // Ce qu'on tape est presque toujours un DEBUT : les prefixes passent devant.
+  const pre = [], mid = [];
+  for (const v of pool) {
+    if (!q) { pre.push(v); continue; }
+    const i = v.toLowerCase().indexOf(q);
+    if (i === 0) pre.push(v); else if (i > 0) mid.push(v);
+  }
+  const all = pre.concat(mid);
+  const shown = all.slice(0, AC_MAX);
+  if (!shown.length) { acHide(); return; }
+
+  const box = acEl();
+  // Un <dialog> modal vit dans la couche du dessus : un element reste dans
+  // <body> passerait DERRIERE lui. On heberge donc la liste dans le dialogue.
+  const host = inp.closest("dialog") || document.body;
+  if (box.parentNode !== host) host.appendChild(box);
+
+  const withIcon = inp.dataset.ac === "icons";
+  box.innerHTML = shown.map((v, i) => {
+    const j = q ? v.toLowerCase().indexOf(q) : -1;
+    const label = j < 0 ? esc(v)
+      : esc(v.slice(0, j)) + "<b>" + esc(v.slice(j, j + q.length)) + "</b>" + esc(v.slice(j + q.length));
+    return `<div class="it${i === 0 ? " on" : ""}" data-v="${esc(v)}">` +
+           (withIcon ? `<img src="../${esc(v)}" alt="" loading="lazy" />` : "") +
+           `<span>${label}</span></div>`;
+  }).join("") +
+  (all.length > shown.length
+    ? `<div class="more">+${all.length - shown.length} more — keep typing</div>` : "");
+
+  const r = inp.getBoundingClientRect();
+  box.style.left = Math.round(r.left) + "px";
+  box.style.minWidth = Math.round(r.width) + "px";
+  box.style.top = "0px";
+  box.classList.add("on");
+  // Bascule au-dessus du champ quand le bas de l'ecran ne laisse pas la place.
+  const h = box.offsetHeight;
+  box.style.top = (innerHeight - r.bottom < h + 8 && r.top > h + 8
+    ? Math.round(r.top - h - 3) : Math.round(r.bottom + 3)) + "px";
+
+  acInput = inp; acIndex = 0;
+}
+
+document.addEventListener("focusin", (ev) => {
+  const inp = ev.target.closest && ev.target.closest("input[data-ac]");
+  if (inp) acShow(inp); else acHide();
+});
+document.addEventListener("input", (ev) => {
+  const inp = ev.target.closest && ev.target.closest("input[data-ac]");
+  if (inp) acShow(inp);
+});
+document.addEventListener("focusout", (ev) => {
+  const inp = ev.target.closest && ev.target.closest("input[data-ac]");
+  if (inp) setTimeout(() => { if (document.activeElement !== inp) acHide(); }, 0);
+});
+document.addEventListener("keydown", (ev) => {
+  if (!acInput || !acBox || !acBox.classList.contains("on")) return;
+  const items = [...acBox.querySelectorAll(".it")];
+  if (!items.length) return;
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault();
+    acIndex = (acIndex + (ev.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items.forEach((el, i) => el.classList.toggle("on", i === acIndex));
+    items[acIndex].scrollIntoView({ block: "nearest" });
+  } else if (ev.key === "Enter" && acIndex >= 0) {
+    ev.preventDefault();
+    acPick(items[acIndex].dataset.v);
+  } else if (ev.key === "Escape") {
+    // On arrete la : sans cela, Echap fermerait aussi le dialogue par-dessous.
+    ev.preventDefault(); ev.stopPropagation();
+    acHide();
+  } else if (ev.key === "Tab") {
+    acHide();
+  }
+}, true);
+// La liste est en position fixe : elle decrocherait du champ au moindre defilement.
+window.addEventListener("scroll", acHide, true);
+window.addEventListener("resize", acHide);
+
 //  Alias — deux noms pour la meme action
 // ----------------------------------------------------------------------
 function drawAliases() {
@@ -728,8 +923,8 @@ function drawAliases() {
         : '<div class="sub">Every upstream id is already in the table.</div>');
 
   $("btnAlias").innerHTML = "Aliases…" + (unk.length ? `<span class="badge">${unk.length}</span>` : "");
-  $("dl-abilities").innerHTML = Object.keys(DOC.abilities)
-    .map((k) => `<option value="${esc(k)}"></option>`).join("");
+  AC.abilities = Object.keys(DOC.abilities).sort();
+  AC.unknown = unk;
 }
 
 $("btnAlias").addEventListener("click", () => {
@@ -786,9 +981,9 @@ $("save").addEventListener("click", async () => {
   $("msg").textContent = "Saving…";
   $("msg").className = "msg";
   try {
-    const r = await fetch("../mapping.php", {
+    const r = await fetch("mapping.php", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Mapping-Token": (typeof MAPPING_TOKEN === "string" ? MAPPING_TOKEN : "") },
       body: JSON.stringify(DOC),
     });
     const d = await r.json();
@@ -796,6 +991,7 @@ $("save").addEventListener("click", async () => {
     $("msg").textContent = `Saved — ${d.abilities} abilities.`;
     $("msg").className = "msg ok";
     setDirty(false);
+    populateSuggestions();
   } catch (e) {
     $("msg").textContent = e.message;
     $("msg").className = "msg bad";
@@ -811,6 +1007,7 @@ window.addEventListener("beforeunload", (e) => {
   try {
     DOC = await (await fetch("../mapping.json?" + Date.now())).json();
     draw();
+    populateSuggestions();
     // Le catalogue amont est demande d'entree, mais seulement pour compter les
     // identifiants qu'on ne connait pas et le dire sur le bouton. api.php le
     // garde 24 h en cache : c'est une requete, et elle ne repart pas en amont.

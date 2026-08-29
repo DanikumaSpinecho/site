@@ -23,3 +23,11 @@ desktop.ini
 # artefact : sans lui l'application n'a ni noms localises ni icones. Elle peut
 # etre modifiee en ligne depuis /admin/, donc la copie deployee peut diverger de
 # celle du depot — penser a la recuperer avant de committer si on l'a editee la-bas.
+
+# Jeton d ecriture de la table des sorts : secret, jamais sur GitHub.
+admin/token.php
+admin/token.js
+
+# Version allegee de la page, fabriquee par tools/strip-comments.py.
+# Artefact de deploiement : ce qui fait reference, c est index.html commente.
+index.dist.html

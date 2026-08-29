@@ -34,6 +34,16 @@ const MAX_ROOMS  = 500;     // garde-fou, largement au-dessus d'un usage normal
 const MAX_BODY   = 4096;
 const PRES_TTL   = 25;      // s : sans signe de vie, un poste est repute parti
 
+// --- Garde-fou de creation ------------------------------------------------------
+// Le site est public depuis le 28 aout 2026. MAX_ROOMS protegeait le disque, pas
+// la disponibilite : un script pouvait creer 500 salons en quelques secondes et
+// bloquer la creation pour tout le monde jusqu'au balayage. On borne donc aussi
+// par demandeur. C'est deliberement genereux — une equipe qui tatonne ne doit
+// jamais s'y heurter — et volontairement grossier : pas de compte, pas de session,
+// juste un seau par adresse et par heure.
+const RATE_MAX   = 12;      // creations de salon par adresse et par heure
+const RATE_WINDOW = 3600;
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
@@ -138,7 +148,36 @@ function sweep(): int {
             @unlink($f);   // presence d'un salon que plus personne ne lit
         }
     }
+    foreach (glob(SYNC_DIR . '/rate-*.cnt') ?: [] as $f) {
+        if ($now - filemtime($f) > RATE_WINDOW * 2) {
+            @unlink($f);   // seau d'une fenetre revolue
+        }
+    }
     return $n;
+}
+
+/**
+ * Seau de creation par demandeur.
+ *
+ * L'adresse est HACHEE avant d'atterrir dans un nom de fichier : on veut compter,
+ * pas tenir un registre de qui est passe. Le sel change a chaque heure, donc les
+ * compteurs ne se rattachent a rien au-dela de la fenetre.
+ */
+function rateOk(): bool {
+    $ip   = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    $slot = (int) floor(time() / RATE_WINDOW);
+    $key  = substr(hash('sha256', $ip . '|' . $slot), 0, 16);
+    $f    = SYNC_DIR . '/rate-' . $key . '.cnt';
+
+    if (!is_dir(SYNC_DIR)) {
+        @mkdir(SYNC_DIR, 0755, true);
+    }
+    $n = is_file($f) ? (int) file_get_contents($f) : 0;
+    if ($n >= RATE_MAX) {
+        return false;
+    }
+    @file_put_contents($f, (string) ($n + 1), LOCK_EX);
+    return true;
 }
 
 /** Un identifiant de salon : « nomdequipe-k7m2qp ». */
@@ -224,6 +263,9 @@ if ($action === 'create') {
     }
     if (!preg_match('/^[A-Z0-9]{1,12}-[A-Z0-9]{1,16}$/', $plan)) {
         fail(400, 'Invalid plan code.');
+    }
+    if (!rateOk()) {
+        fail(429, 'Too many rooms created from here. Try again later.');
     }
     if (sweep() >= MAX_ROOMS) {
         fail(503, 'Too many open rooms, try again later.');

@@ -13,7 +13,6 @@
  *   api.php?plan=…&refresh=1   -> le meme, en forcant la relecture en amont
  *   api.php?fight=umad         -> le combat (phases, mecaniques, boss actions)
  *   api.php?abilities=1        -> toutes les capacites, fusionnees en un objet
- *   api.php?popular=1          -> les plans les plus demandes ici
  *
  * Les reponses sont mises en cache sur disque pour ne pas solliciter
  * inutilement leur serveur.
@@ -199,20 +198,12 @@ if (isset($_GET['plan'])) {
     exit;
 }
 
-if (isset($_GET['popular'])) {
-    $rows = [];
-    foreach (array_slice(popSorted(popRead()), 0, HOT_COUNT, true) as $code => $e) {
-        $f = cacheFile("plan_$code");
-        $rows[] = [
-            'plan'  => $code,
-            'hits'  => (int) ($e['n'] ?? 0),
-            'since' => (int) ($e['first'] ?? 0),
-            'age'   => is_file($f) ? time() - filemtime($f) : null,   // fraicheur de la copie locale
-        ];
-    }
-    echo json_encode(['ttl' => TTL_PLAN_HOT, 'plans' => $rows], JSON_UNESCAPED_UNICODE);
-    exit;
-}
+// Le classement reste INTERNE : il pilote le cache long, il ne se consulte pas.
+// L'ancien point d'entree « ?popular=1 » rendait les codes de plan en clair.
+// Ces codes sont deja publics sur xivmit.app et ne designent personne, mais ils
+// sont indevinables : les publier sur un point d'entree ouvert revenait a les
+// rendre devinables, et ce sont les plans d'autres gens. Retire le 28 aout 2026,
+// au moment de rendre le site public.
 
 if (isset($_GET['fight'])) {
     $id = strtolower(trim((string) $_GET['fight']));
@@ -254,4 +245,4 @@ if (isset($_GET['abilities'])) {
     exit;
 }
 
-fail(400, 'Expected parameter: plan, fight, abilities or popular.');
+fail(400, 'Expected parameter: plan, fight or abilities.');

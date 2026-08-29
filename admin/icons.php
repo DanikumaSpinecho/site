@@ -29,7 +29,8 @@ if (strlen($q) < 2) {
 
 $hits = [];
 foreach (ROOTS as $root) {
-    $dir = __DIR__ . '/' . $root;
+    // admin/ est un cran sous la racine du site depuis le 28 aout 2026.
+    $dir = dirname(__DIR__) . '/' . $root;
     if (!is_dir($dir)) {
         continue;
     }

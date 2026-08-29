@@ -1,15 +1,82 @@
 <!doctype html>
+<!--
+
+     M I T I G O K E
+
+     If you are reading this, you went looking. Good. Here is the part that
+     is not on the page.
+
+     None of this exists without xivmit.app, and xivmit.app does not exist
+     without liam_galt. He built the tool that makes mitigation plans worth
+     writing down, and he left its API open to anyone who asked — including
+     a stranger who turned up one evening with a karaoke idea and a lot of
+     questions.
+
+     He said yes. He suggested the caching that spares his own server. And
+     he asked the one question that mattered — "how would you handle phases
+     having different kill times?" — which is why there is a phase button in
+     this page at all. That whole feature is his.
+
+     So: thank you, Liam. This is a viewer. Yours is the thing.
+
+         https://xivmit.app          ->  where the plans come from
+         https://ko-fi.com/liam_galt ->  where you can say thanks too
+
+     Square Enix owns Final Fantasy XIV and every icon in here. This project
+     is unofficial, unaffiliated, and made by someone who just wanted to
+     stop dying to Flagrant Fire III.
+
+                                    — Danikuma Spinecho, Alpha @ EU-Light
+
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate" />
-<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
-<meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
-<meta name="referrer" content="no-referrer" />
-<meta name="robots" content="noai, noimageai" />
 <meta name="theme-color" content="#0a0e13" />
-<title>Mitigoke — mitigation prompter 0.0.6</title>
+
+<!-- Referencement. Le site a longtemps porte un noindex complet : il etait prive.
+     Ouvert au public le 28 aout 2026. Seul /admin/ reste hors des moteurs, par son
+     propre en-tete et par robots.txt. -->
+<title>Mitigoke — live FFXIV mitigation prompter for Ultimate raids</title>
+<meta name="description" content="Turn a mitigation plan into a live prompter. Load a plan shared from xivmit.app, pick your slot, and see only your own cooldowns, called out seconds before you press them. Built for Ultimate progression — Dancing Mad (UMAD) and the rest. Free, no account, works on phone." />
+<link rel="canonical" href="https://ffxivmitigoke.spinecho.fr/" />
+<meta name="author" content="Danikuma Spinecho" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Mitigoke" />
+<meta property="og:url" content="https://ffxivmitigoke.spinecho.fr/" />
+<meta property="og:title" content="Mitigoke — live FFXIV mitigation prompter" />
+<meta property="og:description" content="Your mitigation plan, called out one cue at a time. Paste an xivmit.app plan, pick your slot, hit start. Party sync included." />
+<meta property="og:image" content="https://ffxivmitigoke.spinecho.fr/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Mitigoke — a mitigation cue counting down before a raidwide" />
+<meta property="og:locale" content="en_GB" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Mitigoke — live FFXIV mitigation prompter" />
+<meta name="twitter:description" content="Your mitigation plan, called out one cue at a time. Free, no account." />
+<meta name="twitter:image" content="https://ffxivmitigoke.spinecho.fr/og.png" />
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="favicon.svg" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Mitigoke",
+  "url": "https://ffxivmitigoke.spinecho.fr/",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Any browser",
+  "browserRequirements": "Requires JavaScript",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "author": { "@type": "Person", "name": "Danikuma Spinecho" },
+  "description": "A live prompter for Final Fantasy XIV mitigation plans. Loads a plan shared from xivmit.app and announces each player's own cooldowns a few seconds ahead, with party synchronisation.",
+  "about": "Final Fantasy XIV raid mitigation planning for Ultimate encounters",
+  "isAccessibleForFree": true
+}
+</script>
 <style>
   :root {
     --bg: #0a0e13;
@@ -84,12 +151,27 @@
   .linkish.mute:hover { color: var(--muted); }
   .linkish:disabled { color: var(--past); text-decoration: none; cursor: not-allowed; }
 
-  /* Pied de page : signature et acces aux deux outils annexes. Volontairement
+  /* Texte de presentation : lu par les moteurs, et utile a qui arrive sans savoir
+     ce que fait la page. Retire du champ des qu'on entre dans le prompteur. */
+  .about { margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--line);
+           color: var(--muted); font-size: .92rem; max-width: 70ch; }
+  .about h2 { font-size: 1.05rem; color: var(--text); margin: 0 0 10px; }
+  .about h3 { font-size: .82rem; color: var(--accent); margin: 22px 0 6px;
+              text-transform: uppercase; letter-spacing: .06em; }
+  .about p { margin: 0 0 10px; }
+  .about ul { margin: 0 0 10px; padding-left: 20px; }
+  .about li { margin-bottom: 5px; }
+  .about strong { color: var(--text); font-weight: 600; }
+  .about-tools { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+  /* Pied de page : signature et acces aux outils. Volontairement
      pale — ils n'ont rien a faire dans le champ de vision pendant un combat. */
   .foot { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap;
           margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--line);
           font-size: .76rem; color: var(--past); }
   .foot .grow { flex: 1 1 auto; }
+  .foot a { color: var(--past); text-decoration: none; }
+  .foot a:hover { color: var(--accent); text-decoration: underline; }
   /* Deux « + » nus : la destination n'apparait qu'au survol, en infobulle. Ce ne
      sont pas des chemins que l'on veut proposer, seulement laisser atteignables. */
   .foot .plus { color: var(--past); text-decoration: none; font-size: 1rem; line-height: 1;
@@ -498,14 +580,78 @@
     </div>
   </div>
 
+  <!-- ============ Ce que c'est ============
+       Texte reellement lisible par un moteur : la page est une application, un
+       robot n'y voit sinon qu'un formulaire vide. Masque des que le prompteur
+       s'ouvre, comme les cartes de reglage. -->
+  <section id="about" class="about">
+    <h2>A live mitigation prompter for Final Fantasy XIV</h2>
+    <p>
+      A mitigation plan is a spreadsheet. In the middle of a pull it is the last thing you
+      can read. <strong>Mitigoke</strong> turns that plan into a prompter: it loads the plan
+      your group already shares on
+      <a href="https://xivmit.app" rel="noopener">xivmit.app</a>, you pick your slot, and from
+      then on you see <em>only your own</em> cooldowns — announced a few seconds ahead, with a
+      countdown, the boss cast they answer, and a beep so you do not have to watch the screen.
+    </p>
+
+    <h3>Built for Ultimate progression</h3>
+    <p>
+      It was written during <strong>Dancing Mad (Ultimate)</strong> — <strong>UMAD</strong>,
+      <em lang="fr">Dancing Mad (Fatal)</em> in the French client — and validated on that
+      fight across several slots and a full 18-minute timeline. It is not tied to it: any
+      encounter xivmit.app knows works the same way, <strong>Ultimate</strong> or Savage.
+    </p>
+
+    <h3>What it does</h3>
+    <ul>
+      <li><strong>One player, one list.</strong> Your slot's cues, not the whole raid's.</li>
+      <li><strong>Called in advance.</strong> Adjustable lead time, two warning beeps then the
+          action beep — scheduled on the audio clock, so they stay on time even in a
+          background tab.</li>
+      <li><strong>Party sync.</strong> The raid leader opens a room, shares one link, and their
+          Start runs everyone's clock. No account, no password, nothing to install.</li>
+      <li><strong>Phase snapping.</strong> Kill a phase early or late and one key press puts the
+          whole timeline back on the boss.</li>
+      <li><strong>Chained cooldowns</strong> shown together, and still-running effects kept on
+          screen with their remaining seconds.</li>
+      <li><strong>Offline plans.</strong> Export a plan to a file and run it with no upstream
+          at all.</li>
+      <li>Localised ability names in <strong>English, French, German and Japanese</strong>, and
+          a phone layout for the second screen you actually have.</li>
+    </ul>
+
+    <h3>Plans it reads</h3>
+    <p>
+      Anything shared from xivmit.app, pasted as a link or as its code. That includes the
+      community <strong>mitigation plans</strong> people already trade around — the
+      <strong>Ikuya</strong> UMAD plan the prompter was tested against, or a sheet like the
+      <strong>LPDU</strong> DMU mit sheet, once it is on xivmit or converted to a plan file.
+      Those plans belong to the people who wrote them; Mitigoke only plays them back.
+    </p>
+
+    <h3 lang="fr">En français</h3>
+    <p lang="fr">
+      Mitigoke transforme un <strong>plan de mitigation</strong> partagé sur xivmit.app en
+      prompteur : chaque joueur choisit son poste et ne voit que ses propres déclenchements,
+      annoncés quelques secondes à l'avance. Pensé pour la progression en
+      <strong>Fatal</strong> — <strong>Dancing Mad (Fatal)</strong>, UMAD — avec
+      synchronisation d'équipe, recalage de phase et noms de sorts en français. Gratuit, sans
+      compte, sans installation.
+    </p>
+
+    <p class="about-tools">
+      Building the plan itself? The <a href="plan_creator/">plan creator</a> lays one out on a
+      timeline and exports it in the same format.
+    </p>
+  </section>
+
   <!-- ============ Pied de page ============ -->
   <div class="foot">
     <span>project by Danikuma SPINECHO Alpha@EU-Light</span>
     <span class="grow"></span>
-    <a class="plus" href="plan_creator/" aria-label="Plan creator"
-       title="Plan creator — build or edit a plan on a timeline">+</a>
-    <a class="plus" href="admin/" aria-label="Ability table"
-       title="Ability table — names, icons, durations and per-job overrides">+</a>
+    <a href="plan_creator/">Plan creator</a>
+    <a href="https://xivmit.app" rel="noopener">xivmit.app</a>
   </div>
 </div>
 
@@ -748,6 +894,45 @@ function validatePlanDoc(d) {
 }
 
 /**
+ * Les chemins d'icones d'un plan local passent par le meme filtre que celui de
+ * mapping.php, et pour la meme raison.
+ *
+ * Un fichier de plan circule : on le recupere sur Discord, on l'ouvre sans le
+ * lire. Son bloc « abilities » peut redefinir n'importe quelle icone. Un chemin
+ * pointant ailleurs que nos deux dossiers d'images ferait partir une requete de
+ * chaque navigateur du groupe vers un serveur tiers — huit adresses IP livrees a
+ * qui a ecrit le fichier, sans que personne ne voie rien. Le chemin refuse est
+ * simplement retire : le nom de la capacite, lui, reste affiche.
+ */
+function iconPathOk(p) {
+  if (typeof p !== "string" || p === "") return false;
+  if (p.includes("..") || p.includes("\\") || p.includes(":") || p[0] === "/") return false;
+  return /^(icons|jobs-new)\//.test(p) && /\.(png|jpe?g|webp|svg)$/i.test(p);
+}
+
+function sanitiseAbilities(src) {
+  const out = {};
+  for (const [id, raw] of Object.entries(src)) {
+    if (!raw || typeof raw !== "object") continue;
+    const e = Object.assign({}, raw);
+    if ("icon" in e && !iconPathOk(e.icon)) delete e.icon;
+    if (e.byJob && typeof e.byJob === "object") {
+      const bj = {};
+      for (const [job, path] of Object.entries(e.byJob)) {
+        if (/^[A-Z]{3}$/.test(job) && iconPathOk(path)) bj[job] = path;
+      }
+      if (Object.keys(bj).length) e.byJob = bj; else delete e.byJob;
+    }
+    // dur sert a un calcul (t + dur) : une chaine y concatenerait au lieu d'additionner.
+    for (const k of ["dur", "mit"]) {
+      if (k in e && (typeof e[k] !== "number" || !isFinite(e[k]))) delete e[k];
+    }
+    out[id] = e;
+  }
+  return out;
+}
+
+/**
  * Un code stable derive du contenu : le meme fichier donne toujours le meme
  * code, ce qui permet a un salon d'equipe de verifier que tout le monde a bien
  * ouvert la meme version du plan.
@@ -800,7 +985,7 @@ async function loadLocalPlan(doc, filename) {
   const map = await fetch("mapping.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
   S.map = { jobs: (map && map.jobs) || {}, abilities: (map && map.abilities) || {} };
   if (doc.abilities && typeof doc.abilities === "object") {
-    S.map.abilities = Object.assign({}, S.map.abilities, doc.abilities);
+    S.map.abilities = Object.assign({}, S.map.abilities, sanitiseAbilities(doc.abilities));
   }
   // Le catalogue amont n'est qu'un repli. S'il a disparu, tant pis : c'est
   // precisement le cas que ce mode sert a couvrir.
@@ -1860,6 +2045,7 @@ $("go").addEventListener("click", () => {
                        `<br>${esc(S.plan.title || "untitled")} · ${S.cues.length} cues`;
   $("setup").hidden = true;
   $("opts").hidden = true;
+  $("about").hidden = true;
   $("stage").classList.add("on");
   if (!S.room) resetRun(); else paintTeam();
 });
@@ -1874,6 +2060,7 @@ function backToSetup() {
   if (!S.room) S.playing = false;
   $("stage").classList.remove("on");
   $("setup").hidden = false;
+  $("about").hidden = false;
   if (S.plan) $("opts").hidden = false;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }

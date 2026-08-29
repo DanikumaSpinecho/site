@@ -9,7 +9,7 @@
 <meta name="referrer" content="no-referrer" />
 <meta name="robots" content="noai, noimageai" />
 <meta name="theme-color" content="#0a0e13" />
-<title>Mitigoke — plan planner 0.0.6</title>
+<title>Mitigoke — plan planner 0.0.7</title>
 <style>
   :root {
     --bg: #0a0e13;
@@ -53,6 +53,14 @@
   button.primary { background: var(--accent); color: #04121f; border-color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   button.mini { padding: 3px 8px; font-size: .8rem; border-radius: 6px; }
+  /* Un lien qui a l'air d'un bouton : c'est une navigation, pas une action, donc
+     un <a> — le clic milieu et « ouvrir dans un onglet » doivent marcher. */
+  .btnlink {
+    display: inline-block; text-decoration: none; white-space: nowrap;
+    font: inherit; font-size: .8rem; color: var(--text); background: #1b2836;
+    border: 1px solid #33445a; border-radius: 6px; padding: 3px 9px;
+  }
+  .btnlink:hover { background: #24374a; color: var(--text); }
   input[type="number"] { width: 82px; }
   ::-webkit-scrollbar { width: 12px; height: 12px; }
   ::-webkit-scrollbar-thumb { background: #2b3a4d; border-radius: 8px; border: 3px solid var(--bg); }
@@ -141,7 +149,7 @@
   .colg .more { margin-left: auto; color: var(--muted); }
   .colg .more:hover { color: var(--text); }
   .gadd { display: flex; flex-wrap: wrap; gap: 3px; padding: 0 7px; }
-  .colg .gsubs { display: flex; gap: 2px; min-width: 0; }
+  .colg .gsubs { display: flex; gap: 0; min-width: 0; }
   .colg .gsubs.mini { flex-wrap: wrap; padding: 0 7px; gap: 3px; }
 
   /* Deplie : une sous-colonne par job, exactement large comme sa voie. */
@@ -149,6 +157,9 @@
           padding: 2px 4px; border-radius: 6px; border: 1px solid transparent; }
   .gsub:hover { background: #1b2836; }
   .gsub.on { background: #1c2939; border-color: #35506e; }
+  .colh.on.role-tank, .gsub.on.role-tank { background: rgba(74, 127, 212, .13); box-shadow: inset 0 -2px 0 var(--tank); }
+  .colh.on.role-healer, .gsub.on.role-healer { background: rgba(89, 179, 107, .13); box-shadow: inset 0 -2px 0 var(--healer); }
+  .colh.on.role-dps, .gsub.on.role-dps { background: rgba(196, 87, 76, .13); box-shadow: inset 0 -2px 0 var(--melee); }
   .gsub img { width: 18px; height: 18px; }
   .gsub .j { font-size: .68rem; letter-spacing: .02em; }
   .gsub .n { margin-left: auto; }
@@ -201,6 +212,27 @@
   .lane.on { background-color: #111b27; }
   .lane.job { cursor: copy; }
 
+  /* Pendant qu'on tire la poignee de largeur, la VOIE est retaillee en direct
+     alors que les tuiles gardent la largeur de leur dernier rendu — c'est
+     l'optimisation qui evite de repeindre 660 blocs a chaque pixel de souris.
+     Le temps du geste, elles depassent donc, et `.lane` ne clippe rien : le
+     fond bavait sur la colonne voisine. On clippe UNIQUEMENT pendant le geste,
+     car un `overflow: hidden` permanent couperait la tuile qu'on fait passer
+     d'une colonne a l'autre au glisser. */
+  #lanes.sizing .lane { overflow: hidden; }
+
+  /* Teinte de role, tres legere : reperer sa colonne sans relire l'en-tete.
+     Bleu tank, vert soin, rouge pour les trois roles d'attaque — ce qu'on
+     cherche d'un coup d'oeil c'est « soigneur ou pas », la distinction corps a
+     corps / distance / mage est deja donnee par l'icone de job.
+     5 % d'opacite, pas plus : au-dela, la trame du temps et les tuiles se
+     salissent. Ces regles viennent APRES `.lane`, dont le raccourci
+     `background` remet la couleur de fond a zero ; `.lane.on` et les colonnes
+     epinglees, plus specifiques, continuent de l'emporter. */
+  .role-tank   { background-color: rgba(74, 127, 212, .05); }
+  .role-healer { background-color: rgba(89, 179, 107, .05); }
+  .role-dps    { background-color: rgba(196, 87, 76, .05); }
+
   /* --- règle des temps --- */
   #ruler { border-left: 0; background: var(--bg); }
   #ruler .t {
@@ -211,9 +243,15 @@
   #ruler .t.maj { color: var(--text); }
 
   /* --- phases --- */
+  /* Flex uniquement pour CENTRER l'etiquette dans la colonne : en ecriture
+     verticale, l'axe des blocs est horizontal, donc le texte se colle contre un
+     bord au lieu de tenir le milieu. `align-items: flex-start` est indispensable
+     — l'etirement par defaut donnerait au `b` toute la hauteur de la phase et
+     son epinglage n'aurait plus rien a faire glisser. */
   .ph {
     position: absolute; left: 2px; right: 2px; border-radius: 4px;
     background: #1a2333; border: 1px solid #26344a;
+    display: flex; justify-content: center; align-items: flex-start;
   }
   .ph b {
     position: sticky; top: calc(var(--headh) + 4px); display: block; font-size: .64rem; font-weight: 600;
@@ -225,6 +263,7 @@
   .mec {
     position: absolute; left: 3px; right: 3px; border-radius: 7px; overflow: hidden;
     border: 1px solid #3d3467; background: rgba(143, 123, 212, .10); cursor: pointer;
+    display: flex; justify-content: center; align-items: flex-start;
   }
   .mec:hover { border-color: var(--mech); }
   .mec.sel { border-color: var(--mech); box-shadow: 0 0 0 1px var(--mech); }
@@ -362,19 +401,30 @@
     font-size: .5rem; font-weight: 700; color: #04121f; background: var(--past);
     display: flex; align-items: center; justify-content: center; overflow: hidden;
   }
+  .blk .tx { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
   .blk .nm { font-size: .68rem; line-height: 1.1; overflow: hidden; min-width: 0; }
-  .blk.short .nm, .blk.tight .nm { display: none; }
+  .blk .note { font-size: .62rem; line-height: 1.1; color: var(--now); overflow: hidden;
+               white-space: nowrap; text-overflow: ellipsis; }
+  .blk.short .nm, .blk.narrow .nm, .blk.short .note, .blk.narrow .note { display: none; }
   /* Dans combien de temps la capacite revient vraiment. Sur la tuile quand il y
      a de quoi le lire, et dans l'infobulle en toute circonstance. */
   .blk .rdy { display: block; margin-top: 1px; font-size: .62rem; font-weight: 600;
               color: var(--bad); white-space: nowrap; }
   .blk.tight { padding: 1px; gap: 2px; }
-  /* Une note ne prend plus de place dans la tuile — a 18 px de large il n'y en
-     a pas. Une etoile posee SUR l'icone, la seule partie jamais recouverte en
-     cascade, et le texte au survol. */
-  .blk .star {
-    position: absolute; top: -1px; left: 0; font-size: .78rem; line-height: 1;
-    color: var(--now); text-shadow: 0 0 3px #000, 0 0 3px #000; pointer-events: none; z-index: 2;
+  /* Couvert en cascade : on empile le nom SOUS l'icone (la tuile est haute pour
+     les sorts a duree) plutot que de le laisser masque par l'icone du voisin. */
+  .blk.covd { flex-direction: column; align-items: flex-start; }
+  /* Bloc en cours de deplacement : l'original reste en place, estompe, pendant
+     que le fantome suit la souris. */
+  /* La tuile qu'on deplace suit reellement le curseur, au lieu de palir sur
+     place pendant qu'un clone flotte a cote : on voit l'objet qu'on manipule.
+     `pointer-events: none` n'est pas cosmetique — sans lui, `elementFromPoint`
+     verrait la tuile elle-meme et la detection de colonne viserait le bloc au
+     lieu de la voie, donc plus aucun changement de colonne ne serait possible. */
+  .blk.drag {
+    pointer-events: none; z-index: 40 !important; opacity: .95; cursor: grabbing;
+    border-color: var(--accent); box-shadow: 0 8px 20px rgba(0, 0, 0, .6);
+    transition: none;
   }
   /* Les sorts qui composent une action generique : « Kitchen Sink » n'a pas
      d'image en propre, ce sont ses composants qui en ont une. */
@@ -401,19 +451,38 @@
   /* --- aides de glisser-déposer --- */
   #ghost {
     position: fixed; z-index: 40; pointer-events: none; border-radius: 6px;
-    background: #1a2635; border: 1px solid var(--accent); padding: 3px 7px;
-    display: flex; align-items: center; gap: 6px; font-size: .76rem;
+    background: #1a2635; border: 1px solid var(--accent); padding: 4px 6px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: .76rem;
     box-shadow: 0 6px 18px rgba(0,0,0,.55);
+    opacity: .65; min-width: 72px;
   }
   #ghost img { width: 20px; height: 20px; display: block; }
   #ghost .tm { color: var(--now); font-variant-numeric: tabular-nums; }
   #ghost .cv:not(:empty) { color: var(--soon); font-size: .72rem; white-space: nowrap; }
   #ghost .rd:not(:empty) { color: var(--now); font-size: .72rem; white-space: nowrap;
                            font-variant-numeric: tabular-nums; }
-  #snap {
+  #ghost .nt { color: var(--now); font-size: .7rem; max-width: 160px; overflow: hidden;
+               white-space: nowrap; text-overflow: ellipsis; }
+  /* Deux lignes d'aimantation : le DEBUT du bloc et sa FIN. N'en tracer qu'une
+     ne disait rien de l'instant ou l'effet retombe, qui est pourtant la moitie
+     de ce qu'on vise en posant une mitigation. */
+  #snap, #snap2 {
     position: absolute; left: 0; right: 0; height: 0; z-index: 8; pointer-events: none;
     border-top: 1px dashed var(--now);
   }
+  #snap2 { opacity: .6; }
+  /* Timecodes debut/fin du bloc pendant le glisser. Poses a GAUCHE de la tuile
+     et decales vers l'exterieur : centres sur l'arete et poses a droite, ils
+     passaient sous le bloc lui-meme, donc invisibles au moment ou on les lit. */
+  #gt0, #gt1 {
+    position: absolute; z-index: 9; pointer-events: none;
+    font-size: .7rem; font-variant-numeric: tabular-nums;
+    color: var(--text); background: rgba(26, 38, 53, .96); border: 1px solid var(--line);
+    border-radius: 4px; padding: 0 4px; white-space: nowrap;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .5);
+  }
+  #gt0 { transform: translate(-100%, -100%); margin-top: -3px; }
+  #gt1 { transform: translate(-100%, 0); margin-top: 3px; }
 
   /* ------------------------------------------------------------ panneau droit */
   #tabs { display: flex; border-bottom: 1px solid var(--line); }
@@ -569,6 +638,8 @@
       <button id="btnUndo" class="mini" title="Undo (Ctrl+Z)">↶</button>
       <button id="btnRedo" class="mini" title="Redo (Ctrl+Y)">↷</button>
     </div>
+    <a id="btnMap" class="btnlink" href="../admin/" target="_blank" rel="noopener"
+       title="Names, icons, recasts — the shared ability table">Ability mapping ↗</a>
     <button id="btnHelp" class="mini" title="Keyboard shortcuts">?</button>
   </div>
 
@@ -577,6 +648,9 @@
       <div id="head"></div>
       <div id="lanes"></div>
       <div id="snap" hidden></div>
+      <div id="snap2" hidden></div>
+      <div id="gt0" hidden></div>
+      <div id="gt1" hidden></div>
     </div>
 
     <div id="side">
@@ -678,7 +752,8 @@
     <tr><td><kbd>Drag</kbd> from the list</td><td class="muted">drop it on the column at that time</td></tr>
     <tr><td><kbd>Drag</kbd> a block</td><td class="muted">move it in time, or to another column</td></tr>
     <tr><td><kbd>Alt</kbd> while dragging</td><td class="muted">ignore snapping</td></tr>
-    <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td class="muted">nudge by one snap step</td></tr>
+    <tr><td><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>←</kbd> <kbd>→</kbd></td><td class="muted">scroll the timeline</td></tr>
+    <tr><td><kbd>Alt</kbd> + <kbd>↑</kbd> <kbd>↓</kbd></td><td class="muted">nudge a selected block by one snap step</td></tr>
     <tr><td><kbd>Shift</kbd> + <kbd>↑</kbd> <kbd>↓</kbd></td><td class="muted">nudge by five steps</td></tr>
     <tr><td><kbd>Del</kbd></td><td class="muted">remove the selected block</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td class="muted">duplicate it 30 s later</td></tr>
@@ -997,6 +1072,14 @@ function roleOfJob(job) {
   return PSEUDO[job] !== undefined ? job : "";
 }
 
+/** Classe de couleur d'en-tete : bleu tank, vert healer, rouge DPS. */
+function roleClass(role) {
+  if (role === "TANK") return "role-tank";
+  if (role === "HEALER") return "role-healer";
+  if (role === "MELEE" || role === "RANGED" || role === "CASTER") return "role-dps";
+  return "";
+}
+
 /**
  * Tout ce qu'on sait d'une capacite pour un job donne.
  *
@@ -1088,15 +1171,21 @@ function okForJob(abilityId, job) {
 function abilitiesFor(job) {
   const role = roleOfJob(job);
   const pfx = String(job).toLowerCase() + "_";
-  const out = [];
+  // Dedoublonnage par nom affiche : la meme capacite existe en entree de role
+  // (tank_reprisal) et en entree propre au job (pld_reprisal). On garde celle du
+  // job, plus precise, plutot que d'afficher deux fois le meme nom.
+  const byName = new Map();
   for (const id of Object.keys(S.map.abilities)) {
     const a = S.map.abilities[id];
     const ok = a.job === job || (role && a.job === role) || id.indexOf(pfx) === 0
             || (a.byJob && a.byJob[job]);
-    if (ok) out.push(id);
+    if (!ok) continue;
+    const name = view(id, job).name;
+    const prev = byName.get(name);
+    if (!prev || (a.job === job && prev.job !== job)) byName.set(name, { id, job: a.job });
   }
   // Les mitigations d'abord — c'est ce qu'on vient chercher — puis par nom.
-  return out.sort((x, y) => {
+  return [...byName.values()].map((x) => x.id).sort((x, y) => {
     const vx = view(x, job), vy = view(y, job);
     const mx = vx.mit ? 0 : 1, my = vy.mit ? 0 : 1;
     return mx - my || vx.name.localeCompare(vy.name);
@@ -1284,7 +1373,7 @@ function headSolo(c) {
   const p = c.player;
   const opts = jobOptions(p).map((j) =>
     `<option value="${esc(j)}"${j === p.job ? " selected" : ""}>${esc(j)}</option>`).join("");
-  return `<div class="colh colj${S.sel === p.id ? " on" : ""}" data-pid="${esc(p.id)}" ` +
+  return `<div class="colh colj${S.sel === p.id ? " on" : ""} ${roleClass(roleOfJob(p.job))}" data-pid="${esc(p.id)}" ` +
          `data-col="${esc(c.key)}" data-n="1" style="${widStyle(c.key, 1)}">` +
            `<div class="slot">${esc(c.label)}</div>` +
            `<div class="who">${jobIcon(p.job)}<span class="n">${countOf(p.id)}</span></div>` +
@@ -1296,7 +1385,7 @@ function headSolo(c) {
 function headGroup(c) {
   const n = c.merged ? 1 : Math.max(1, c.subs.length);
   const tgt = c.merged ? mergedTarget(c) : null;
-  const sel = c.subs.some((s) => s.pid && s.pid === S.sel);
+  const sel = c.merged && c.subs.some((s) => s.pid && s.pid === S.sel);
 
   // Les jobs decoches n'ont plus de colonne. Leurs pastilles se rangent derriere
   // un « + » : affichees en permanence, les quatre casters faisaient passer la
@@ -1318,7 +1407,7 @@ function headGroup(c) {
     const box = `<label class="isob on" title="Hide the ${esc(s.job)} column">` +
                 `<input type="checkbox" data-jv="${esc(c.key)}" value="${esc(s.job)}" checked /></label>`;
     if (!c.merged) {
-      return `<div class="gsub${s.pid && s.pid === S.sel ? " on" : ""}" data-slot="${esc(c.key)}" ` +
+      return `<div class="gsub${s.pid && s.pid === S.sel ? " on" : ""} ${roleClass(c.slot.role)}" data-slot="${esc(c.key)}" ` +
              `data-job="${esc(s.job)}"${s.pid ? ` data-pid="${esc(s.pid)}"` : ""}>` +
                box + jobIcon(s.job) +
                `<span class="j">${esc(s.job)}</span><span class="n">${cnt}</span>` +
@@ -1329,7 +1418,7 @@ function headGroup(c) {
              jobIcon(s.job) + (cnt ? `<span class="n">${cnt}</span>` : "") + `</label>`;
   }).join("");
 
-  return `<div class="colh colg colj${sel ? " on" : ""}" data-grp="${esc(c.key)}" ` +
+  return `<div class="colh colg colj${sel ? " on" : ""} ${roleClass(c.slot.role)}" data-grp="${esc(c.key)}" ` +
          `data-col="${esc(c.key)}" data-n="${n}" style="${widStyle(c.key, n)}">` +
            `<div class="ghd">` +
              `<button class="exp" data-exp="${esc(c.key)}" title="${
@@ -1582,10 +1671,14 @@ function laneBlocks(pid, job, wpx) {
       // celui de droite, dont rien ne couvre le corps, garde le sien.
       // Comparaison sur la POSITION, pas sur la profondeur : au-dela du
       // rebouclage, c'est elle qui dit qui recouvre qui.
+      // Couvert : un voisin plus a droite dont l'ICONE est a la meme hauteur
+      // (startTime proche) recouvre le nom. L'ancien test portait sur tout le
+      // chevauchement temporel et marquait « couvert » un Rampart dont le voisin
+      // ne commence que quelques secondes plus bas — son icone, elle, ne
+      // recouvre rien.
       const covered = g.some((o, j) =>
         (track[j] % slots) > tr &&
-        o.startTime < a.startTime + spanOf(a) &&
-        a.startTime < o.startTime + spanOf(o));
+        Math.abs(o.startTime - a.startTime) < 3);
 
       // Fantome de recharge : ce qui reste avant de pouvoir relancer. Large
       // comme l'icone seulement — pleine largeur, sa trame grise viendrait
@@ -1613,13 +1706,16 @@ function laneBlocks(pid, job, wpx) {
 
       html.push(
         `<div class="blk${h < 30 ? " short" : ""}${covered || bw < 64 ? " tight" : ""}` +
+        `${covered ? " covd" : ""}${bw < 64 ? " narrow" : ""}` +
         `${S.pick === a.id ? " sel" : ""}${clash.has(a.id) ? " clash" : ""}` +
         `${track[k] >= slots ? " over" : ""}" ` +
         `data-a="${esc(a.id)}" style="top:${top}px;height:${h}px;left:${dx}px;width:${bw}px;` +
         `--iw:${iw}px;z-index:${tr + 1}" title="${esc(tip.join(" — "))}">` +
           iconsFor(a.abilityId, job, g.length === 1 ? 4 : 1) +
-          `<span class="nm">${esc(v.name)}${rdy}</span>` +
-          (a.note ? '<span class="star" aria-label="has a note">*</span>' : "") +
+          `<span class="tx">` +
+            `<span class="nm">${esc(v.name)}${rdy}</span>` +
+            (a.note ? `<span class="note">${esc(a.note)}</span>` : "") +
+          `</span>` +
         `</div>`);
     });
   }
@@ -2091,10 +2187,18 @@ function timeAt(clientY) {
   return tOf(clientY - r.top);
 }
 
-function startDrag(e, kind, ref, from) {
-  const g = document.createElement("div");
-  g.id = "ghost";
+/**
+ * Distance, en pixels, avant qu'un appui ne devienne un DEPLACEMENT.
+ *
+ * Sans ce seuil, un simple clic pour selectionner une tuile allumait d'un coup
+ * le calque des fenetres, le report de couverture, la ligne d'aimantation et les
+ * timecodes — tout ca pour ne rien deplacer. C'etait illisible. Rien ne
+ * s'affiche donc tant que le curseur n'a pas franchi ces quelques pixels.
+ */
+const DRAG_SLOP = 4;
 
+function startDrag(e, kind, ref, from) {
+  abortDrag();                       // un geste precedent reste en l'air ? on solde
   let grab = from ? e.clientY - from.top : 10;
   if (kind === "cast") {
     // Pour un cast on mesure la prise depuis l'instant d'APPLICATION, pas depuis
@@ -2102,33 +2206,94 @@ function startDrag(e, kind, ref, from) {
     // la nouvelle application, sans decalage a rattraper.
     const b = castOf(ref);
     grab = e.clientY - ($("lanes").getBoundingClientRect().top + yOf(Number(b && b.time) || 0));
+  }
+  // Rien n'est cree ni peint ici : on ne sait pas encore si c'est un clic.
+  drag = { kind, ref, from, ghost: null, ok: false, t: 0, tgt: null, grab,
+           x0: e.clientX, y0: e.clientY, armed: false, orig: null, lane0: null };
+  window.addEventListener("pointermove", moveDrag);
+  window.addEventListener("pointerup", endDrag);
+  window.addEventListener("pointercancel", abortDrag);
+  window.addEventListener("keydown", cancelOnEsc, true);
+}
+
+/** Le geste est confirme : on fabrique le fantome et on saisit la tuile. */
+function armDrag() {
+  const g = document.createElement("div");
+  g.id = "ghost";
+  if (drag.kind === "cast") {
+    const b = castOf(drag.ref);
     g.innerHTML = `<span>${esc((b && b.name) || "cast")}</span><span class="tm">0:00</span>`;
   } else {
-    const job = from ? jobOf(from.playerId) : jobOf(S.sel);
-    const v = view(ref, job);
-    g.innerHTML = iconsFor(ref, job, 3) + `<span>${esc(v.name)}</span>` +
+    const job = drag.from ? jobOf(drag.from.playerId) : jobOf(S.sel);
+    const v = view(drag.ref, job);
+    const note = drag.from ? ((assignOf(drag.from.id) || {}).note || "") : "";
+    // Une tuile suit desormais le curseur dans les DEUX cas — deplacement ou
+    // ajout depuis la palette. Repeter son icone et son nom juste a cote ferait
+    // double emploi : le fantome n'est plus qu'un cartouche de mesures.
+    g.innerHTML = (note ? `<span class="nt">${esc(note)}</span>` : "") +
                   `<span class="tm">0:00</span><span class="cv"></span><span class="rd"></span>`;
   }
   document.body.appendChild(g);
+  drag.ghost = g;
 
-  drag = { kind, ref, from, ghost: g, ok: false, t: 0, tgt: null, grab };
-  moveDrag(e);
-  window.addEventListener("pointermove", moveDrag);
-  window.addEventListener("pointerup", endDrag);
-  window.addEventListener("keydown", cancelOnEsc, true);
+  if (drag.kind === "move" && drag.from && drag.from.id) {
+    // Recherche par parcours plutot que par selecteur : un identifiant venu
+    // d'un fichier de plan ecrit a la main n'a aucune raison d'etre un
+    // selecteur CSS valide.
+    for (const b of document.querySelectorAll(".blk")) {
+      if (b.dataset.a === drag.from.id) { drag.orig = b; break; }
+    }
+    if (drag.orig) {
+      drag.orig.classList.add("drag");
+      drag.lane0 = drag.orig.closest(".lane");
+    }
+  } else if (drag.kind === "new") {
+    // Ajout depuis la palette : il n'y a aucune tuile a saisir, on en fabrique
+    // une. Meme balisage qu'une vraie, pour qu'on juge sur piece de la place
+    // qu'elle prendra et de la duree qu'elle couvre.
+    drag.orig = previewTile(drag.ref, jobOf(S.sel));
+    drag.synthetic = true;
+  }
+  drag.armed = true;
+}
+
+/**
+ * Une tuile d'apercu, batie comme une vraie, pour un ajout depuis la palette.
+ *
+ * Elle occupe toute la largeur de la voie : sa place exacte dans la cascade ne
+ * se decide qu'au lacher, et la recalculer a chaque pixel couterait le prix
+ * d'un rendu complet pour une information qui changerait encore.
+ */
+function previewTile(abilityId, job) {
+  const el = document.createElement("div");
+  el.className = "blk drag";
+  el.style.setProperty("--iw", ICON_W + "px");
+  el.style.left = "2px";
+  el.style.width = "calc(100% - 4px)";
+  el.style.zIndex = "40";
+  el.innerHTML = iconsFor(abilityId, job, 3) +
+                 `<span class="nm">${esc(view(abilityId, job).name)}</span>`;
+  return el;
 }
 
 function moveDrag(e) {
   if (!drag) return;
+  // Tant que le seuil n'est pas franchi, l'appui reste un clic : aucune aide
+  // n'apparait et rien n'est cree.
+  if (!drag.armed) {
+    if (Math.abs(e.clientX - drag.x0) < DRAG_SLOP && Math.abs(e.clientY - drag.y0) < DRAG_SLOP) return;
+    armDrag();
+  }
   drag.ghost.style.left = (e.clientX + 14) + "px";
   drag.ghost.style.top = (e.clientY + 12) + "px";
 
+  let lane = null;
   const raw = timeAt(e.clientY - drag.grab);
   if (drag.kind === "cast") {
     drag.t = snapTime(raw, e.altKey, drag.ref);
     drag.ok = true;
   } else {
-    const lane = laneUnder(e.clientX, e.clientY);
+    lane = laneUnder(e.clientX, e.clientY);
     drag.t = snapTime(raw, e.altKey);
     drag.tgt = lane ? { pid: lane.dataset.pid || "", slot: lane.dataset.slot || "",
                         job: lane.dataset.job || "" } : null;
@@ -2185,19 +2350,103 @@ function moveDrag(e) {
   const s = $("snap");
   s.hidden = !drag.ok;
   s.style.top = ($("lanes").offsetTop + yOf(t)) + "px";
+
+  // La tuile suit le curseur.
+  //
+  // Deplacement : on reecrit son `top`, deja exprime dans le repere de sa voie,
+  // et on la decale d'un `translateX` plutot que de la reparenter — ce qui
+  // obligerait a recalculer sa position en cascade a chaque pixel.
+  //
+  // Ajout depuis la palette : la tuile d'apercu n'appartient a aucune voie, on
+  // la REPARENTE donc dans celle qu'on survole. C'est ce que faisait defaut :
+  // `previewTile()` la fabriquait mais personne ne l'inserait, si bien qu'elle
+  // n'apparaissait jamais.
+  if (drag.orig) {
+    if (drag.synthetic) {
+      if (lane && drag.ok) {
+        if (drag.orig.parentNode !== lane) lane.appendChild(drag.orig);
+        const dur = view(drag.ref, drag.tgt ? (drag.tgt.job || jobOf(drag.tgt.pid)) : "").dur || 0;
+        drag.orig.style.top = yOf(t) + "px";
+        drag.orig.style.height = Math.max(22, yOf(dur)) + "px";
+        drag.orig.hidden = false;
+      } else if (drag.orig.parentNode) {
+        // Hors d'une voie valable, il n'y a rien a prefigurer : on la retire
+        // plutot que de la laisser trainer dans la derniere colonne survolee.
+        drag.orig.remove();
+      }
+    } else {
+      drag.orig.style.top = yOf(t) + "px";
+      const dx = (lane && drag.lane0 && lane !== drag.lane0)
+        ? lane.getBoundingClientRect().left - drag.lane0.getBoundingClientRect().left
+        : 0;
+      drag.orig.style.transform = dx ? `translateX(${round1(dx)}px)` : "";
+    }
+    // Hachures en direct des que la recharge n'est pas revenue a cet endroit —
+    // meme signal que sur une tuile posee, et pour les deux gestes. Sans ca,
+    // seul le liseré du fantome le disait, loin de l'endroit qu'on vise.
+    drag.orig.classList.toggle("clash", drag.ready === false);
+  }
+
+  // Timecodes debut/fin du bloc, et seconde ligne d'aimantation sur sa fin.
+  if (drag.kind !== "cast") {
+    const job = drag.tgt ? (drag.tgt.job || jobOf(drag.tgt.pid)) : "";
+    const dur = view(drag.ref, job).dur || 0;
+    const offTop = $("lanes").offsetTop;
+    const br = $("board").getBoundingClientRect();
+    // Ancrees au bord GAUCHE de la voie visee, pas au curseur : les pastilles
+    // sont poussees vers l'exterieur par leur `transform`, donc rien du bloc ne
+    // vient les recouvrir. Repli sur le curseur quand aucune voie n'est visee.
+    const bx = lane
+      ? lane.getBoundingClientRect().left - br.left + $("board").scrollLeft - 6
+      : e.clientX - br.left + $("board").scrollLeft;
+    const tc = (x) => fmt(x) + (x % 1 ? "." + Math.round((x % 1) * 10) : "");
+    const gt0 = $("gt0"), gt1 = $("gt1"), s2 = $("snap2");
+    gt0.hidden = false;
+    gt0.style.left = bx + "px";
+    gt0.style.top = (offTop + yOf(t)) + "px";
+    gt0.textContent = tc(t);
+    if (dur > 0) {
+      gt1.hidden = false;
+      gt1.style.left = bx + "px";
+      gt1.style.top = (offTop + yOf(t + dur)) + "px";
+      gt1.textContent = tc(t + dur);
+      s2.hidden = !drag.ok;
+      s2.style.top = (offTop + yOf(t + dur)) + "px";
+    } else {
+      gt1.hidden = true;
+      s2.hidden = true;
+    }
+  } else {
+    $("gt0").hidden = true;
+    $("gt1").hidden = true;
+    $("snap2").hidden = true;
+  }
 }
 
 function endDrag(e) {
   window.removeEventListener("pointermove", moveDrag);
   window.removeEventListener("pointerup", endDrag);
+  window.removeEventListener("pointercancel", abortDrag);
   window.removeEventListener("keydown", cancelOnEsc, true);
   $("snap").hidden = true;
+  $("snap2").hidden = true;
+  $("gt0").hidden = true;
+  $("gt1").hidden = true;
   clearLegal(); clearCover();
   if (!drag) return;
   const d = drag;
   drag = null;
-  d.ghost.remove();
-  if (!d.ok) return;
+  if (d.ghost) d.ghost.remove();
+  // L'apercu est un element FABRIQUE : il se retire, il ne se declasse pas.
+  if (d.orig && d.synthetic) d.orig.remove();
+  else if (d.orig) { d.orig.classList.remove("drag", "clash"); d.orig.style.transform = ""; }
+  // Seuil jamais franchi : c'etait un clic. La selection a deja eu lieu au
+  // `pointerdown`, il n'y a rien a deplacer et rien a repeindre.
+  if (!d.armed) return;
+  // Geste refuse alors qu'une vraie tuile a bouge a l'ecran : il faut la
+  // remettre en place, sinon elle resterait la ou on l'a lachee sans que le
+  // plan ait change. Un apercu, lui, vient de disparaitre : rien a repeindre.
+  if (!d.ok) { if (d.orig && !d.synthetic) paintLanes(); return; }
 
   if (d.kind === "cast") {
     const b = castOf(d.ref);
@@ -2232,16 +2481,38 @@ function endDrag(e) {
   paintAll(); save();
 }
 
+/**
+ * Abandonne le geste en cours sans rien appliquer, et rend l'ecran a son etat.
+ *
+ * Appele aussi au DEBUT de chaque geste : si un `pointerup` s'est perdu —
+ * relachement hors de la fenetre, onglet qui reprend la main, exception dans un
+ * gestionnaire — le fantome restait a l'ecran pour de bon, puisque le geste
+ * suivant remplace `drag` et perd la seule reference qu'on avait sur lui.
+ */
+function abortDrag() {
+  if (!drag) return;
+  window.removeEventListener("pointermove", moveDrag);
+  window.removeEventListener("pointerup", endDrag);
+  window.removeEventListener("pointercancel", abortDrag);
+  window.removeEventListener("keydown", cancelOnEsc, true);
+  const wasArmed = drag.armed, moved = drag.synthetic ? null : drag.orig;
+  if (drag.ghost) drag.ghost.remove();
+  if (drag.synthetic && drag.orig) drag.orig.remove();
+  else if (moved) { moved.classList.remove("drag", "clash"); moved.style.transform = ""; }
+  drag = null;
+  $("snap").hidden = true;
+  $("snap2").hidden = true;
+  $("gt0").hidden = true;
+  $("gt1").hidden = true;
+  clearLegal(); clearCover();
+  // La tuile a suivi le curseur : l'abandon doit la ramener a sa place.
+  if (wasArmed && moved) paintLanes();
+}
+
 function cancelOnEsc(e) {
   if (e.key !== "Escape" || !drag) return;
   e.preventDefault();
-  window.removeEventListener("pointermove", moveDrag);
-  window.removeEventListener("pointerup", endDrag);
-  window.removeEventListener("keydown", cancelOnEsc, true);
-  drag.ghost.remove();
-  drag = null;
-  $("snap").hidden = true;
-  clearLegal(); clearCover();
+  abortDrag();
 }
 
 // ======================================================================
@@ -2783,17 +3054,27 @@ function bind() {
       e.preventDefault(); $("iDup") && $("iDup").click(); return;
     }
     if (e.key === "Escape") { S.pick = null; S.pickCast = null; S.pickMech = null; paintAll(); return; }
-    if (!S.pick) return;
-    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); removePick(); return; }
-    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    // Deplacement dans la timeline : fleches = defilement (toujours), Alt/Shift +
+    // fleche = nudge du bloc selectionne.
+    if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
       e.preventDefault();
-      const a = assignOf(S.pick);
-      if (!a) return;
-      const step = (S.snap || 0.5) * (e.shiftKey ? 5 : 1) * (e.key === "ArrowUp" ? -1 : 1);
-      snapshot();
-      a.startTime = round1(Math.max(0, Math.min(S.doc.fight.duration, a.startTime + step)));
-      paintAll(); save();
+      const vert = e.key === "ArrowUp" || e.key === "ArrowDown";
+      if (S.pick && vert && (e.altKey || e.shiftKey)) {
+        const a = assignOf(S.pick);
+        if (a) {
+          const step = (S.snap || 0.5) * (e.shiftKey ? 5 : 1) * (e.key === "ArrowUp" ? -1 : 1);
+          snapshot();
+          a.startTime = round1(Math.max(0, Math.min(S.doc.fight.duration, a.startTime + step)));
+          paintAll(); save();
+        }
+        return;
+      }
+      const board = $("board");
+      const dir = (e.key === "ArrowUp" || e.key === "ArrowLeft") ? -1 : 1;
+      if (vert) board.scrollTop += dir * 120; else board.scrollLeft += dir * 120;
+      return;
     }
+    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); removePick(); return; }
   });
 }
 

@@ -1,81 +1,18 @@
-# Mitigoke — private prompter for a single raid group. Not for indexing.
+# Mitigoke — https://ffxivmitigoke.spinecho.fr
 #
-# Why this file does NOT say "Disallow: /" for everyone:
-# a crawler that is forbidden from fetching the page never reads the
-# X-Robots-Tag: noindex header it is served, so a search engine can still list
-# the bare URL if someone posts the link somewhere public. Letting the compliant
-# search engines fetch is what actually guarantees the page is never listed --
-# every response on this host carries noindex, so they read it and drop the URL.
+# Le site a longtemps refuse toute indexation : il etait prive. Il est public
+# depuis le 28 aout 2026, et cherche desormais a etre trouve.
 #
-# Everything that is not a search engine (AI trainers, scrapers, SEO crawlers)
-# is refused here AND blocked by User-Agent in .htaccess, which does not rely on
-# their goodwill.
+# Une seule chose reste hors des moteurs : /admin/, la page de correspondance des
+# sorts. Elle est protegee par mot de passe cote serveur ; ce Disallow ne fait que
+# lui eviter d'apparaitre dans un resultat de recherche. La vraie barriere est le
+# mot de passe, pas cette ligne — robots.txt n'est qu'une convention polie.
 
-# --- Search engines: allowed to fetch, so they read the noindex header --------
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: DuckDuckBot
-Allow: /
-
-User-agent: Slurp
-Allow: /
-
-User-agent: Applebot
-Allow: /
-
-# --- AI training and answer engines -------------------------------------------
-User-agent: GPTBot
-User-agent: ChatGPT-User
-User-agent: OAI-SearchBot
-User-agent: ClaudeBot
-User-agent: Claude-Web
-User-agent: anthropic-ai
-User-agent: Google-Extended
-User-agent: Applebot-Extended
-User-agent: PerplexityBot
-User-agent: Perplexity-User
-User-agent: meta-externalagent
-User-agent: FacebookBot
-User-agent: Amazonbot
-User-agent: Bytespider
-User-agent: CCBot
-User-agent: cohere-ai
-User-agent: cohere-training-data-crawler
-User-agent: AI2Bot
-User-agent: Diffbot
-User-agent: DuckAssistBot
-User-agent: ImagesiftBot
-User-agent: Omgilibot
-User-agent: Omgili
-User-agent: PanguBot
-User-agent: Timpibot
-User-agent: Webzio-Extended
-User-agent: YouBot
-Disallow: /
-
-# --- SEO and commercial crawlers ----------------------------------------------
-User-agent: AhrefsBot
-User-agent: SemrushBot
-User-agent: MJ12bot
-User-agent: DotBot
-User-agent: DataForSeoBot
-User-agent: BLEXBot
-User-agent: Barkrowler
-User-agent: PetalBot
-User-agent: serpstatbot
-User-agent: ZoominfoBot
-User-agent: SeekportBot
-Disallow: /
-
-# --- Everyone else -------------------------------------------------------------
-# No crawl restriction, on purpose: the noindex header does the work, and it can
-# only do it if the page can be fetched. Nothing here is worth crawling anyway.
 User-agent: *
+Allow: /
+Disallow: /admin/
 Disallow: /.cache/
 Disallow: /.sync/
 Disallow: /.mapping-backups/
-Disallow: /admin/
+
+Sitemap: https://ffxivmitigoke.spinecho.fr/sitemap.xml
