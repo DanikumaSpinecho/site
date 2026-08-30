@@ -1,412 +1,233 @@
-# Mitigoke
+<h1 align="center">Mitigoke</h1>
 
-**A live teleprompter for FFXIV mitigation plans: each player sees only their own
-cooldowns, announced seconds ahead, on one clock shared by the whole party.**
+<p align="center">
+  <b>Your mitigation plan, called out one cue at a time.</b><br>
+  A live prompter for Final Fantasy XIV raid mitigation — built for Ultimate progression.
+</p>
 
-Paste a plan shared from [xivmit.app](https://xivmit.app), pick your slot, and the page
-calls out *your* cooldowns — and only yours — a few seconds before each one is due,
-karaoke style. One person opens a party room; their Start button then runs everyone's
-clock.
+<p align="center">
+  <a href="https://ffxivmitigoke.spinecho.fr"><b>ffxivmitigoke.spinecho.fr</b></a>
+  &nbsp;·&nbsp; free &nbsp;·&nbsp; no account &nbsp;·&nbsp; nothing to install
+</p>
 
-Works on a phone.
+![The prompter announcing a cue four seconds ahead, with the mechanic and the boss cast it answers](docs/prompter.png)
+
+---
+
+## The problem
+
+A mitigation plan is a spreadsheet. Someone spends hours getting it right — who presses
+what, and when, down to the second — and then, in the middle of a pull, nobody can read it.
+You are watching the boss, not a table of thirty rows in which four of them are yours.
+
+**Mitigoke turns that plan into a prompter.** It loads the plan your group already shares
+on [xivmit.app](https://xivmit.app), you pick your slot, and from that moment you see
+*only your own* cooldowns — announced a few seconds ahead, with a countdown, the boss cast
+they answer, and a beep so you do not have to watch the screen at all.
+
+## Getting started
+
+1. Build or open your plan on **[xivmit.app](https://xivmit.app)** and copy its share link.
+2. Paste it into [ffxivmitigoke.spinecho.fr](https://ffxivmitigoke.spinecho.fr) — the plan
+   code on its own works too.
+3. Pick your slot, press **Open prompter**, then **Start** on the pull.
+
+One link is all a group needs:
 
 ```
-https://your-host/?plan=UMAD-G0FF1B
+https://ffxivmitigoke.spinecho.fr/?plan=UMAD-G0FF1B
 ```
 
-That single link is all a raid group needs. Everyone opens it and chooses their own slot.
+Everyone opens it and chooses their own slot. Nobody signs up for anything.
 
 ---
 
 ## What it does
 
-Three screens in one page:
+### Only your cooldowns, a few seconds early
 
-1. **Load** — accepts a full share link or just the code (`UMAD-G0FF1B`). A `?plan=CODE`
-   in the URL loads on its own.
-2. **Settings** — slot, ability-name language, lead time, personal offset, pull countdown,
-   beep, and party room.
-3. **Prompter** — fight clock, a large "now" panel with countdown and ability icon, the
-   mechanic and boss cast it answers, the plan's note if there is one, and the full queue.
+The big panel shows one thing: what *you* press next, how long until you press it, and
+which boss cast it is answering. The lead time is yours to set. Two quiet warning beeps at
+two seconds and one second, then a louder one when it is time — so the prompter works even
+on a second screen you are not looking at.
 
-The queue holds **every cue in the plan**, not a sliding window: you can read the whole
-fight through before the pull. Once the clock runs it scrolls itself, keeping the current
-cue a third of the way down. Before the pull it stays where you left it, so browsing is
-not fought by the auto-scroll.
+### Staying on the boss
 
-Settings, in seconds:
+This is the part that makes a prompter usable in a real pull.
 
-| | |
-|---|---|
-| **Lead time** | how far ahead a cue is announced (green border) |
-| **Personal offset** | shifts your own display; adjustable mid-fight |
-| **Pull countdown** | the clock starts negative, to match the in-game `/countdown` |
+A plan is a single timeline anchored at the pull, but a phase ends when your group kills
+it. Kill it thirty seconds early and every cue after that is thirty seconds late. So there
+are two buttons above the clock, each naming what it will snap to:
 
-Keyboard: `Space` start/pause, `R` reset, `P` phase resync, `C` boss-cast resync.
+- **Sync to &lt;cast&gt;** — the fine adjustment. Press it the moment the boss does the
+  thing named on the button, and the whole timeline slides onto that instant. A phase
+  change is invisible on screen; a boss cast is something you *see*, which is what makes
+  this the reliable one.
+- **Phase ▸ &lt;name&gt;** — the coarse adjustment, for the moment a phase actually turns.
 
-## Staying on the boss
+The clock lands half a second *after* the event, not on it: by the time your finger reaches
+the button, the cast has already begun.
 
-A plan is a score played to the second, and reality drifts from it. Two buttons sit **above
-the clock**, wide enough to hit without aiming, each naming what it will snap to.
+### The whole plan, grouped the way a raid calls it
 
-**Sync to <cast>** is the fine one, and the one you will actually use. A phase change is
-not visible on screen — nothing announces that the fight moved from phase *n* to *n+1* —
-but a boss cast is something you *see*. Press when the boss does the thing named on the
-button, and the whole timeline slides onto it; every cue moves with it, because cues are
-never moved one at a time.
+The queue holds every cue in the plan, not a sliding window, so you can read the fight
+through before the pull. Consecutive cues belonging to the same boss mechanic are framed
+together under its name.
 
-Two details that are not cosmetic:
+![The queue, with cues grouped under the boss mechanic they belong to](docs/queue.png)
 
-- The instant targeted is the **start of the cast** (`time - castTime`), not its resolution
-  — that is what you see first. Most casts have no cast bar at all (66 of 89 on the
-  reference plan), and for those the visible instant is the hit itself. Both cases reduce to
-  the same arithmetic.
-- The clock lands **half a second after** that instant, not on it. By the time your finger
-  reaches the button the event has already started; without that correction every resync
-  would gain half a second, and the error would compound with each use.
+### One clock for the whole party
 
-It targets the **nearest** cast. Casts are dense — 8.9 s apart on average — so that
-tolerates about four seconds of drift before it picks the neighbour. Which is exactly why
-the button **shows the name**: you compare it to what the boss is doing and only press if
-they match. Hence the order of operations — **phase first to get the clock into the right
-neighbourhood, cast second to put it on the right instant.**
+One person names the party and gets a link. Everyone who opens it follows their clock:
+their **Start** starts everyone, their pause pauses everyone, and their resyncs move
+everyone. Each player still sees only their own cues, and can nudge their own display
+without affecting anyone else.
 
-In a party only the leader has them, and they travel the same path as resuming from a
-pause: the client sends a delay, the server dates the new 00:00, followers land on it at
-their next poll.
+Two clients measured **0.3 ms apart** in production. Nothing is stored about anybody — no
+account, no name, no address.
 
-### And the phase button beside it
+### On a phone
 
-A plan is a single timeline anchored at the pull, but a phase ends when the party kills it.
-From the first transition onward, everything downstream is off by however much that phase
-ran long or short — the one structural flaw of a timeline prompter, and the reason the cast
-button exists at all.
+The same page, in one column, with thumb-sized controls.
 
-**Phase ▸ <name>** snaps the clock onto the boundary. Like the cast button it targets the
-**nearest** one rather than the next: a phase killed early moves the clock forward, one that
-drags moves it back, and both are the same operation. "The next one" would pick the wrong
-phase as soon as the clock had already crossed the boundary — exactly what happens in
-progression. The tooltip carries the signed delta, so you can see when a click will rewind.
+<p align="center">
+  <img src="docs/mobile.png" width="380" alt="The prompter in a narrow column: resync buttons, clock, cue panel and queue stacked vertically">
+</p>
 
-What it does not repair: cooldowns run in real time and do not reset on a transition. Moving
-the clock forward brings the following cues that much closer, so a plan built around a slower
-kill can ask for an ability that is not back yet. That is not an artefact of the snap — it is
-what actually happens when you kill faster than planned.
+### And when the internet is not your friend
 
-## Mechanics
+A plan can be exported to a file and reloaded later, so a group can run entirely from local
+copies. Ability names come in **English, French, German and Japanese**.
 
-A boss mechanic is not a single cast. *Graven Image I* runs from 00:30 to 00:52 and, inside
-that window, Kefka chains **Flagrant Fire III**, **Wave Cannon**, **Explosion** and
-**Confetti**. The mechanic is the name a raid calls out loud; the casts are what you are
-actually mitigating.
+---
 
-The upstream fight data carries both — `mechanics` as named time windows, `bossActions` as
-timed casts — but no explicit link between them. Mitigoke reconstructs it: a cue is matched
-to the cast it answers, and that cast to the mechanic whose window contains it. Deliberately
-by the *cast's* time and not the cue's, since a mitigation goes out early and would often
-fall outside the window.
+## Credits
 
-So the "now" panel reads:
+Plans, fights and the ability catalogue all come from **[xivmit.app](https://xivmit.app)**,
+built by **liam_galt** — you can support him on [ko-fi](https://ko-fi.com/liam_galt).
+Mitigoke is a viewer and nothing more: without his work there is no plan to play back. He
+was asked before any of this went out, and he agreed.
 
-```
-                    GRAVEN IMAGE I
-            for Flagrant Fire III at 00:38
-```
+His API is public but neither documented nor contractual, and may change without notice.
 
-and the queue frames consecutive cues belonging to the same mechanic under a sticky header,
-with a coloured edge. Cues outside any mechanic — roughly a third of them on Dancing Mad —
-stay ungrouped rather than being forced into a box.
+FINAL FANTASY XIV and all associated imagery are the property of **Square Enix Co., Ltd.**
+This project is unofficial, unaffiliated and not endorsed by Square Enix.
 
-## Party sync
+---
+---
 
-The leader names the party and gets a room id like `tuesday-static-k7m2qp`. The six random
-characters are what keep the room from being guessed — the name alone would be trivial.
+# Technical
 
-A room does not store a running clock. It stores **`t0`, the server instant at which the
-fight reaches 00:00**. Every client derives its own position from that and then runs
-independently, so the group syncs once per pull rather than continuously. Polling every two
-seconds only exists to catch pause, resume, reset and shared-offset changes.
+Everything below is for people who want to run it, read it, or take it apart.
+
+## Design, in five decisions
+
+**No build step, no dependencies, no package manager.** The prompter is one HTML file with
+its CSS and JavaScript inside it. You edit it, you copy it to a server, it is live. The one
+concession is a comment stripper run at deploy time, which shaves 26 % off the page —
+`index.html` in this repository is the commented source, and it is what you should read.
+
+**The clock is recomputed, never incremented.** `setInterval` at 10 Hz, and every pass
+derives the fight time from `performance.now()`. `requestAnimationFrame` is deliberately
+not used: it is suspended the moment the window stops being composited, which is exactly
+the case of a prompter on a second screen. If the browser throttles the loop the display
+stalls, but the clock never drifts.
+
+**Beeps are scheduled ahead on the audio clock.** A background tab has its timers throttled
+to once a second, then once a minute. The audio thread is not throttled, so upcoming beeps
+are scheduled as absolute times on the `AudioContext` — measured 1 ms off target with the
+JavaScript thread deliberately blocked for 900 ms.
+
+**A party room stores an instant, not a running clock.** It holds `t0`, the *server* moment
+at which the fight reaches 00:00. Each client derives its own position and then runs
+independently, so a group synchronises once per pull rather than continuously.
 
 **Client clocks are never trusted.** Two machines can be seconds apart. Every response
 carries the server time; the client probes three times, keeps the shortest round trip, and
-derives its own skew — bounded by half that round trip. It anchors to `performance.now()`,
-which is monotonic, rather than `Date.now()`, which the OS can step mid-session. Measured
-between two clients: **0.3 ms apart**.
-
-Clients only ever send a *delay*, never a timestamp — the server dates the start.
-
-Whoever creates the room gets a random key kept in `localStorage`; the room stores only its
-SHA-256 hash. Without it the clock buttons do nothing. A `&lead=KEY` link lets the leader
-take control back from another browser; it is stripped from the address bar on arrival so a
-careless copy-paste does not hand control to the whole party.
-
-## Ability names and icons
-
-`mapping.json` is the single source: display name in English, French, German and Japanese,
-plus an icon path, for each of the 158 abilities in the table — the 153 the upstream
-catalogue lists, plus five added by hand.
-
-Three mechanisms stack:
-
-- **direct icon** — the common case;
-- **per-job icon** — for generic role entries. *Invuln* has no artwork of its own, but
-  Hallowed Ground, Holmgang, Living Dead and Superbolide do;
-- **fallback** — none, in the queue: the icon cell is simply left empty, as a spacer. Eight
-  generic entries carry only per-job icons, so a slot typed by *role* rather than by job
-  (`TANK`, `RANGED`) shows no artwork — on the reference plan that is 12 of a main tank's 27
-  cues. The ability name is still there; only the picture is missing.
-
-The per-job mechanism is deliberate: **no job list is hard-coded anywhere**. Jobs come from the
-upstream API, icons from `mapping.json`. When a new job ships it works immediately, with a
-chip instead of artwork, and gains its icon whenever one is added. Icon folders are matched
-by their `_JOB` suffix and never by their number, which a new job could shift.
-
-**Community labels stay untranslated.** When the upstream plan uses a name that is not an
-in-game action — *Spreadlo*, *Kitchen Sink*, *Party Mit*, *Invuln* — it is a term of art.
-Translating it would make it unrecognisable, so it is shown as-is in every language, with
-the underlying action's official names kept alongside for reference.
-
-Each ability also carries a **duration**. When one is still running, its icon stays in the
-bottom-left of the now panel, pulsing, with the seconds left — so what is still protecting
-the party is visible without reading the log. Durations are the effective ones for level
-100 content: Reprisal, Feint and Addle are recorded at 15 s, not the 10 s of the base data,
-because they are upgraded at level 98.
-
-Twenty-two abilities have no duration on purpose. Benediction, Lustrate, Assize,
-Tetragrammaton and the rest are instant heals, and Provoke and Shirk are pure utility:
-there is nothing to keep on screen.
-
-Edit any of this at **`/admin/`** — password-protected, and not linked from the public
-page: a table of every ability, with filters, an icon picker, per-language name fields and
-the duration column.
-
-## Loading a plan from a file
-
-The upstream API is public but neither documented nor contractual, so there is a fallback:
-the discreet **“Load a plan file…”** link under the code field opens a local JSON file
-instead of fetching one. Nothing is uploaded — the file is read in the browser.
-
-JSON, because it is exactly what the prompter already reads: no parser to add, no
-dependency, and it stays editable by hand. The shape mirrors the upstream data, wrapped:
-
-```json
-{
-  "format": "mitigoke-plan/1",
-  "title": "My plan",
-  "fight":       { "name": "…", "duration": 600,
-                   "phases": [], "mechanics": [], "bossActions": [] },
-  "players":     [ { "id": "p1", "job": "PLD", "name": "MT" } ],
-  "assignments": [ { "playerId": "p1", "abilityId": "pld_rampart", "startTime": 12 } ],
-  "abilities":   { }
-}
-```
-
-All times are **seconds since the pull**, and `startTime` is when the ability is *pressed*,
-not when it lands. `abilities` is optional: names and icons come from `mapping.json`, and
-this block only adds or overrides entries — enough to make a plan fully self-contained.
-
-Everything file-related lives behind the small **local** toggle under the code field, which
-expands to *load*, *export* and *template*.
-
-- **load** — open a plan file. The loader validates before displaying anything and names
-  the offending entry: `assignments[3] points at unknown player "p99"`.
-- **export** — freeze the plan currently loaded, upstream or not, into the same format.
-  One entry per line, so the file stays readable and diffs cleanly.
-- **template** — download the skeleton, [plan-template.json](plan-template.json).
-
-Party sync still works with a local plan. It gets a `LOCAL-…` code derived from its
-contents, so the invite link carries it, and whoever opens that link is asked to load their
-own copy of the file — the room is then joined automatically. Because the code comes from
-the contents, two diverging copies produce two different codes, which is how you notice.
+anchors to `performance.now()` — monotonic — rather than `Date.now()`, which the operating
+system can step mid-session. Clients only ever send a *delay*; the server dates the start.
 
 ## Requirements
 
-- PHP 8.0 or later with cURL
-- Apache or LiteSpeed with `mod_rewrite` and `mod_headers`
-- **No build step, no dependencies, no package manager.** Copy the files, done. This is a
-  feature of the project, not an omission — please don't add a bundler.
+- Any static host with **PHP 8.1** and `curl`. No database, no cron, no websocket.
+- The web root must be writable: the scripts create `.cache/` and `.sync/` on first use.
 
 ## Install
 
-Copy the contents of this repository to your web root and make sure the directory is
-writable by PHP: it creates `.cache/`, `.sync/` and `.mapping-backups/` on first use. The
-bundled `.htaccess` blocks all three from the web, along with `.git/`.
-
-Then open `https://your-host/?plan=SOME-CODE`.
+Copy the contents of this directory to your web root, then open
+`https://your-host/?plan=SOME-CODE`. The bundled `.htaccess` sets the security headers and
+blocks the service directories.
 
 ### Endpoints
 
 ```
-api.php?plan=UMAD-G0FF1B   the shared plan       (cached 300 s, 3600 s if hot)
-api.php?plan=…&refresh=1   the same, re-read from upstream
-api.php?fight=umad         the fight             (cached 86400 s)
-api.php?abilities=1        the ability catalogue (cached 86400 s)
+api.php?plan=UMAD-G0FF1B    the shared plan        (cached 300 s, 3600 s if popular)
+api.php?plan=CODE&refresh=1 the same, re-read from upstream
+api.php?fight=umad          the fight              (cached 86400 s)
+api.php?abilities=1         the ability catalogue  (cached 86400 s)
 
-sync.php?now=1             server time (calibration probe)
-sync.php?room=ID           room state
-POST sync.php              {action: create|state|hello}
-
-POST admin/mapping.php     writes mapping.json          (behind the admin password)
-admin/icons.php?q=reprisal icon search, for /admin/     (behind the admin password)
+sync.php?now=1              server time (calibration probe)
+sync.php?room=ID            room state
+POST sync.php               {action: create|state|hello}
 ```
-
-The two writing endpoints sit **inside `admin/`** so that one directory password covers
-them. A ranking of the most-requested plans still drives the long cache, but it is no
-longer readable from outside: it named other people's plan codes.
 
 `api.php` exists because the upstream API sends no CORS headers, so the browser cannot call
 it directly. It has fixed actions and no free-form path: **no arbitrary URL can be
-requested through it.** Responses are cached on disk to spare the upstream server, and a
-stale cache is served rather than an error if upstream is unreachable.
+requested through it.** Responses are cached on disk to spare the upstream server, a stale
+cache is served rather than an error if upstream is unreachable, and the busiest plans get
+an hour of cache instead of five minutes.
 
-The plans a host actually serves are a handful, always the same ones. `api.php` keeps a
-tally and gives the **top five an hour of cache** instead of five minutes, which is where
-the upstream calls actually go. The tally is read before the call and written after it, so
-a mistyped code never takes one of the five places. The price is that an edit can take an
-hour to show up — hence **refresh**, under the input field, which skips the cache read
-without giving up the stale-cache fallback.
+`mapping.json` carries the display name in four languages, an icon path, a duration and a
+mitigation percentage for each of the 158 abilities. The repository also ships two editing
+tools that are not part of the prompter; the one that writes this table must be put behind
+a password before the site is reachable by strangers.
 
-### Before you expose this publicly
+## Before you expose this publicly
 
-- **Put a password on `/admin/`.** Everything that writes lives there — `admin/mapping.php`
-  edits the ability table, `admin/icons.php` walks the image tree. Use your host's directory
-  protection. Two further locks are already in place and neither replaces it: a write token
-  in `admin/token.php` + `admin/token.js` (both git-ignored — a fresh clone has none, so the
-  token check is simply off until you create them), and a refusal of cross-origin writes.
-  That last one matters *because* of the password: once a browser is authenticated it
-  attaches the credentials by itself, so a form posted from a booby-trapped page would
-  otherwise be written straight through.
-- The site ships **indexable**. It spent its early life under a blanket `noindex` because it
-  was private; that was reversed on 2026-08-28. `robots.txt` allows everything except
-  `/admin/`, which also keeps an `X-Robots-Tag: noindex` set by the root `.htaccess` on
-  anything under `/admin`. If you want a private deployment again, put the `noindex` back on
-  every response — a `Disallow` alone will not do it, since a URL nobody may crawl can still
-  be listed.
+- **Password-protect the admin directory.** Everything that writes lives there. Two further
+  locks are in place and neither replaces a password: a write token, and a refusal of
+  cross-origin writes — that last one matters *because* of the password, since an
+  authenticated browser attaches its credentials by itself.
 - **A shared plan file is untrusted input.** Its optional `abilities` block can redefine any
   icon; a path pointing at a third-party server would make every player's browser call it.
   Icon paths from a plan file are filtered on load, and the Content-Security-Policy blocks
   it a second time in the browser.
-- If your host puts a CDN in front of static files, images may bypass `.htaccess` and lose
-  those headers. Check, or disable the CDN for the host.
-- The room-creation endpoint is rate-limited per requester (12 per hour), on top of the
-  global cap. The address is hashed with the hour, so it counts without keeping a log.
+- Room creation is rate-limited per requester on top of a global cap. The address is hashed
+  with the hour, so it counts without keeping a log.
 
 ## Known limitations
 
-- **Background tabs.** Browsers throttle `setInterval` to about 1 Hz in a hidden tab, and
-  down to once a minute after five minutes. The clock itself never drifts — it is
-  recomputed from `performance.now()` on every pass, never incremented, which is exactly
-  why `requestAnimationFrame` is not used. Since 0.0.6 the **beeps no longer lag either**:
-  they are scheduled ahead on the audio clock, which is not throttled. The *display* still
-  lags in a hidden window, and that is left alone — a window you cannot see is a window you
-  are not reading.
+- **Background tabs.** Browsers throttle timers to about 1 Hz in a hidden tab, and to once a
+  minute after five. The clock stays exact and the beeps stay on time; the *display* lags,
+  and that is left alone — a window you cannot see is a window you are not reading.
 - Party sync has been verified between two clients, not yet across a full group of eight.
-- `mapping.json` can be edited live from `/admin/`, so a deployed copy may drift from the
-  one in this repository.
-- `/admin/` is built for a desktop screen; the prompter itself is not.
+- Eight generic entries carry only per-job icons, so a slot typed by *role* rather than by
+  job shows the ability name without artwork.
+- `mapping.json` can be edited live, so a deployed copy may drift from the one here.
 
-## Version
+## Version history
 
-**1.0**
+**1.0** — resync on a boss cast, the feature that makes the rest usable in a real pull;
+both resync buttons moved above the clock and now name their target; the site went public
+and indexable, with the write endpoints moved behind a password.
 
-- **Resync on a boss cast.** The feature that makes the rest usable in a real pull: a wide
-  button above the clock, naming the cast it will snap to. See *Staying on the boss*.
-- Both resync buttons moved above the clock and now carry the **name** of their target;
-  `next phase ▸` never said what it was going *to*.
-- The site went public: indexable, with a description and structured data, the write
-  endpoints moved behind the admin password, and the endpoint that listed plan codes
-  removed.
+**0.0.6** — one shared plan format between the prompter and the plan editor, which had
+drifted apart on nine points; a lost party room is now reported instead of polling into the
+void; beeps scheduled on the audio clock so they survive a background tab.
 
-**0.0.6**
+**0.0.5** — phase snapping; an hour of cache for the busiest plans, with a refresh control.
 
-- **One plan format, one implementation.** Validation and export had been duplicated
-  between the prompter and the plan creator and had drifted apart on nine points — most
-  seriously, a plan carrying `damageType`/`damage` lost them silently on a round trip
-  through the prompter. Both pages now carry the same canonical `PLAN-IO v1` block, with a
-  dated log in each; `author` is preserved, empty strings are dropped consistently, and a
-  missing `duration` or missing ids are filled in without ever overwriting explicit ones.
-- **A lost room now says so.** A follower whose room had expired used to poll into the void
-  forever. The two cases are told apart: the server *answering* that the room is gone is
-  reported at once, while a request that simply fails waits three attempts, because a
-  dropped packet is not a deleted room. Either way the clock keeps running — it is anchored
-  on a server-dated instant, so it stays correct — and a **Continue on my own** button turns
-  the dead room into a local clock without shifting a single cue.
-- **Beeps that survive a background tab.** They are scheduled ahead on the audio clock,
-  which browsers do not throttle, instead of being fired by a throttled timer. Measured: a
-  note aimed at 1.500 s played at 1.571 s — 1 ms off — with the JavaScript thread
-  deliberately blocked for 900 ms.
+**0.0.4** — chained cooldowns shown together; the leader sees which slots have the plan
+open; per-job icons for generic entries.
 
-**0.0.5**
+**0.0.3** — plan export; warning beeps at two and one seconds; still-running effects kept
+on screen with their remaining time.
 
-- **Phase changes.** `next phase ▸` snaps the clock onto the nearest phase boundary the
-  moment a phase actually turns, in either direction. In a party it travels through the
-  server like a resume, so it needed no new room field. See *Phase changes* above.
-- **A cache for the plans that matter.** The five most-requested plans on a host get an
-  hour of cache instead of five minutes, with a **refresh** control to force a re-read.
-  Suggested by the author of xivmit.app, who confirmed he has no objection to this site
-  using the API.
-- **Footer.** A signature, and two bare `+` links — the plan creator and the ability table.
-  They name themselves on hover only: reachable, not advertised.
-- The page title is a button back to the loading screen, without reloading: a reload
-  mid-fight would drop the plan, the room and the clock.
+**0.0.2** — the full queue grouped by mechanic; phone layout; offline plan files.
 
-**0.0.4**
-
-- **Chains.** Cues less than five seconds apart are shown together, joined by an arrow:
-  `Reprisal → Shake It Off`. The countdown stays that of the first, the others show their
-  offset. The rule applies step by step, so a chain can hold three or four. Warning beeps
-  are dropped for a cue whose predecessor is under two seconds away, otherwise a tight
-  chain would beep almost continuously.
-- **Who has the plan open.** In a party room, each client quietly announces the slot it
-  picked; the leader sees the expected line-up with a lit dot per connected slot. The
-  line-up comes from the plan itself, not a hardcoded eight-player party. Nothing personal
-  travels — a slot id and a job code, no name, no address.
-- **Per-job icons in `/admin/`.** Generic entries such as *Party Mit* get a **+** that
-  unfolds one line per candidate job — BRD, MCH and DNC for a `RANGED` entry — deduced
-  from the roles in `mapping.json`, so a future job appears on its own.
-
-**0.0.3**
-
-- **Export.** The `local` menu now folds together *load*, *export* and *template*. Export
-  freezes the loaded plan as a `mitigoke-plan/1` file — one entry per line, readable and
-  diffable — so a plan can be saved while the upstream API still answers.
-- **Warning beeps.** Two quiet low beeps at 2 s and 1 s before each cue, then the usual
-  bright one on the action. You hear a countdown instead of being startled.
-- **Active cooldowns.** An ability whose duration is still running keeps its icon in the
-  bottom-left of the now panel, pulsing, with the seconds left. What is still protecting
-  you is visible at a glance.
-- **Duration column** in `/admin/`, and 17 corrected durations: Reprisal, Feint and Addle
-  last 15 s at level 98+, not the 10 s the base data reports.
-
-**0.0.2**
-
-- Manual plan files: a JSON plan can be opened from disk, with per-field validation and a
-  downloadable template. Insurance against the upstream API disappearing.
-
-- Whole plan in the queue instead of a twelve-row window. The old window looked like the
-  plan simply stopped — for a White Mage on Dancing Mad the twelfth row falls at 4:59,
-  while the plan runs to 17:56.
-- Boss mechanics reconstructed and shown above the cast, and used to group the queue.
-- Phone layout: single column, thumb-sized controls, two-line queue rows, no sideways
-  scroll.
-
-**0.0.1** — first working version: prompter, ability icons and localised names, party sync.
-
-## Credits
-
-Plans, fights and the ability catalogue come from **[xivmit.app](https://xivmit.app)** by
-liam_galt ([ko-fi](https://ko-fi.com/liam_galt)) — this project is only a viewer and would
-not exist without it. Its API is public but neither documented nor contractual, and may
-change without notice. He was told about this site and had no objection; the caching in
-0.0.5 is his suggestion.
-
-Localised ability names come from **[XIVAPI](https://xivapi.com)**, queried once offline
-when `mapping.json` is generated; the running site never calls it.
-
-FINAL FANTASY XIV and all associated imagery are the property of **Square Enix Co., Ltd.**
-This project is unofficial, unaffiliated and not endorsed by Square Enix. Game assets
-included here remain their copyright and are not covered by the licence below.
+**0.0.1** — first working prompter, with icons, localised names and party sync.
 
 ## Licence
 
-MIT, for the code — see [LICENSE](LICENSE).
+MIT, for the code — see [LICENSE](LICENSE). Game assets included in this repository remain
+the copyright of Square Enix and are not covered by it.
