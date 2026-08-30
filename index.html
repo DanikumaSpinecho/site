@@ -163,6 +163,12 @@
   .about li { margin-bottom: 5px; }
   .about strong { color: var(--text); font-weight: 600; }
   .about-tools { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+  /* Journal des versions : une trace, pas un recit. Assez pale pour ne pas
+     concurrencer le reste de la presentation. */
+  .about .log { list-style: none; padding: 0; margin: 0; font-size: .85rem; }
+  .about .log li { margin-bottom: 4px; color: var(--past); }
+  .about .log b { color: var(--muted); font-weight: 600;
+                  font-variant-numeric: tabular-nums; margin-right: 4px; }
 
   /* Pied de page : signature et acces aux outils. Volontairement
      pale — ils n'ont rien a faire dans le champ de vision pendant un combat. */
@@ -208,6 +214,30 @@
     background: var(--panel); border: 1px solid var(--line);
     border-radius: 12px; padding: 12px 18px; margin-bottom: 16px;
   }
+  /* --- Rangee de recalage ---------------------------------------------------
+     Le plan est une partition jouee a la seconde ; la realite, elle, derive. Ces
+     deux boutons sont la pour la rattraper SANS quitter le combat des yeux, donc
+     ils sont larges, poses au-dessus du chrono, et ils portent le NOM de ce sur
+     quoi ils vont caler. Lire un nom et le comparer a ce que fait le boss est la
+     seule verification possible avant de presser. */
+  .resync { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; margin-bottom: 10px; }
+
+  .cast-jump {
+    flex: 1 1 340px; display: flex; align-items: baseline; gap: 12px;
+    padding: 13px 18px; border-radius: 12px; text-align: left; min-height: 0;
+    background: #14263a; border: 1px solid var(--accent); color: var(--text);
+  }
+  .cast-jump:hover:not(:disabled) { background: #1b3350; }
+  .cast-jump:disabled { background: var(--panel); border-color: var(--line); }
+  .cj-tag  { font-size: .68rem; text-transform: uppercase; letter-spacing: .1em;
+             color: var(--accent); flex: 0 0 auto; }
+  .cast-jump:disabled .cj-tag { color: var(--past); }
+  .cj-name { font-size: 1.15rem; font-weight: 600; flex: 1 1 auto;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cj-when { font-size: .82rem; color: var(--muted); flex: 0 0 auto;
+             font-variant-numeric: tabular-nums; }
+  .cj-tb   { color: var(--tb); font-weight: 700; }
+
   .clock { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
   .clock.pre { color: var(--now); }
   .meta { color: var(--muted); font-size: .85rem; }
@@ -318,12 +348,17 @@
                color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
   /* Le bouton de transition se tient contre l'etiquette de phase : c'est la
      meme information, et le rang des commandes est deja plein. */
-  .phase-next { display: inline-block; font: inherit; font-size: .72rem;
-                text-transform: uppercase; letter-spacing: .06em; width: auto; min-height: 0;
-                padding: 1px 8px; border-radius: 999px; margin-left: 4px;
-                background: none; border: 1px solid var(--line); color: var(--soon); }
-  .phase-next:hover:not(:disabled) { background: #16241d; border-color: var(--soon); color: var(--soon); }
-  .phase-next:disabled { color: var(--past); border-color: var(--line); background: none; }
+  /* Le recalage de phase : le gros ajustement, celui qu'on fait une fois par
+     transition. Plus discret que le cast, qui sert lui a la seconde pres. */
+  .phase-next { flex: 0 1 auto; display: flex; align-items: baseline; gap: 10px;
+                font: inherit; font-size: .82rem; width: auto; min-height: 0;
+                padding: 13px 16px; border-radius: 12px; text-align: left;
+                background: var(--panel); border: 1px solid var(--soon); color: var(--soon); }
+  .phase-next:hover:not(:disabled) { background: #16241d; }
+  .phase-next:disabled { color: var(--past); border-color: var(--line); }
+  .pn-tag  { font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; }
+  .pn-name { font-weight: 600; color: var(--text); }
+  .phase-next:disabled .pn-name { color: var(--past); }
 
   /* ---- Equipe ---- */
   /* Salon perdu : visible sans etre alarmant. L'horloge continue de tourner
@@ -371,6 +406,12 @@
     .row > * { flex: 1 1 100%; }
     #teamName, #invite { flex: 1 1 100%; }
 
+    /* Sur telephone, le bouton de cast prend toute la largeur : c'est celui
+       qu'on presse en combat, il doit rester atteignable au pouce. */
+    .resync { gap: 8px; }
+    .cast-jump { flex: 1 1 100%; padding: 12px 14px; gap: 10px; }
+    .cj-name { font-size: 1.02rem; }
+    .phase-next { flex: 1 1 100%; justify-content: center; padding: 11px 14px; }
     .bar { gap: 10px; padding: 10px 12px; }
     .clock { font-size: 2.1rem; }
     .meta { font-size: .8rem; order: 3; }
@@ -424,6 +465,8 @@
 
   @media (max-width: 400px) {
     .clock { font-size: 1.8rem; }
+    .cj-name { font-size: .95rem; }
+    .cj-tag, .cj-when { font-size: .64rem; }
     .bar .row.tight > button { font-size: .85rem; padding: 10px 2px; }
     .phase-tag { font-size: .66rem; }
   }
@@ -435,7 +478,7 @@
   <h1><button type="button" id="home" title="Back to the loading screen">MITIGOKE</button></h1>
   <div class="sub">
     Load a plan shared from <a href="https://xivmit.app" target="_blank" rel="noopener noreferrer">xivmit.app</a>,
-    pick your slot, and follow your cues live.<span class="ver">v0.0.6</span>
+    pick your slot, and follow your cues live.<span class="ver">v1.0</span>
   </div>
 
   <!-- ============ Chargement du plan ============ -->
@@ -542,13 +585,28 @@
 
   <!-- ============ Prompteur ============ -->
   <div id="stage">
+    <!-- Rangee de recalage, posee AU-DESSUS du chrono : c'est ce qu'on presse en
+         plein combat, quand on n'a le temps de viser ni un petit bouton ni un
+         menu. Deux granularites — le cast pour l'ajustement fin, la phase pour
+         le gros decalage. -->
+    <div class="resync" id="resync" hidden>
+      <button type="button" class="cast-jump" id="nextCast">
+        <span class="cj-tag">Sync to</span>
+        <span class="cj-name" id="nextCastName">—</span>
+        <span class="cj-when" id="nextCastWhen"></span>
+      </button>
+      <button type="button" class="phase-next" id="nextPhase" hidden>
+        <span class="pn-tag">Phase ▸</span>
+        <span class="pn-name" id="nextPhaseName">—</span>
+      </button>
+    </div>
+
     <div class="bar">
       <div class="clock" id="clock">00:00</div>
       <div class="meta">
         <div id="who"></div>
         <div>
           <span class="phase-tag" id="phase">—</span>
-          <button type="button" class="phase-next" id="nextPhase" hidden>next phase ▸</button>
           <span class="team-state" id="barTeam"></span>
         </div>
       </div>
@@ -644,6 +702,20 @@
       Building the plan itself? The <a href="plan_creator/">plan creator</a> lays one out on a
       timeline and exports it in the same format.
     </p>
+
+    <!-- Journal des versions, volontairement telegraphique : quelques mots par
+         version, juste de quoi montrer que la page est suivie et depuis quand.
+         Le detail vit dans le README du depot, pas ici. -->
+    <h3>Changelog</h3>
+    <ol class="log" reversed>
+      <li><b>1.0</b> — resync on a boss cast; site made public and indexable</li>
+      <li><b>0.0.6</b> — one shared plan format; lost rooms reported; beeps survive a background tab</li>
+      <li><b>0.0.5</b> — phase snapping; long cache for the busiest plans</li>
+      <li><b>0.0.4</b> — chained cooldowns; who has the plan open; per-job icons</li>
+      <li><b>0.0.3</b> — plan export; warning beeps; effects still running</li>
+      <li><b>0.0.2</b> — full queue grouped by mechanic; phone layout; offline plan files</li>
+      <li><b>0.0.1</b> — first working prompter, with icons, localised names and party sync</li>
+    </ol>
   </section>
 
   <!-- ============ Pied de page ============ -->
@@ -1162,6 +1234,70 @@ function phaseBoundaries() {
  */
 const PHASE_SNAP_DEAD = 2;   // s : sous cet ecart, l'horloge est deja posee dessus
 
+/**
+ * Recalage sur un CAST DU BOSS — l'ajustement fin, ajoute en 1.0.
+ *
+ * Le recalage de phase repare le gros decalage, mais il demande de savoir QUAND
+ * la phase a tourne, ce qui ne se voit pas : rien a l'ecran n'annonce le passage
+ * de la phase n a la n+1. Un cast, lui, est un evenement que le joueur VOIT. Sur
+ * une partition qui se joue a la seconde, c'est le seul repere fiable.
+ *
+ * Le joueur presse quand le boss fait la chose nommee sur le bouton, et l'horloge
+ * vient se poser dessus. Les mitigations suivent, puisque c'est toute la ligne de
+ * temps qui glisse — on ne deplace jamais un cue tout seul.
+ *
+ * TEMPS DE REACTION. On ne cale pas l'horloge sur l'instant zero du cast mais un
+ * demi-seconde apres : quand le doigt arrive sur le bouton, l'evenement a deja
+ * commence. Sans cette correction, chaque recalage prendrait un demi-seconde
+ * d'avance, et l'erreur s'accumulerait a chaque usage.
+ */
+const REACTION = 0.5;   // s : delai entre voir l'evenement et presser le bouton
+
+/**
+ * Les instants OBSERVABLES, tries.
+ *
+ * Pour un cast avec incantation, ce que le joueur voit d'abord est la barre qui
+ * apparait, soit `time - castTime`. Pour les autres — 66 des 89 casts du plan de
+ * reference n'ont pas d'incantation — l'evenement visible est l'impact lui-meme,
+ * a `time`. Les deux cas se ramenent au meme calcul.
+ */
+function castMarks() {
+  return ((S.fight && S.fight.bossActions) || [])
+    .map((b) => ({
+      name: b.name || "cast",
+      type: b.type || "",
+      at: b.time - (Number(b.castTime) || 0),
+    }))
+    .filter((m) => isFinite(m.at) && m.at >= 0)
+    .sort((a, b) => a.at - b.at);
+}
+
+/**
+ * Le cast vise : le PLUS PROCHE de l'horloge, comme pour les phases.
+ *
+ * Les casts sont serres — 8,9 s d'ecart median sur le plan de reference — donc
+ * « le plus proche » ne tolere qu'une derive d'environ quatre secondes avant de
+ * designer le voisin. C'est assume, et c'est precisement pourquoi le bouton
+ * AFFICHE LE NOM : le joueur compare ce nom a ce que fait le boss, et ne presse
+ * que s'ils correspondent. L'ordre des operations est celui-la — la phase pour
+ * ramener l'horloge dans le bon voisinage, le cast pour la poser au bon endroit.
+ */
+function nearestCast(t) {
+  let best = null;
+  for (const m of castMarks()) {
+    if (best === null || Math.abs(m.at - t) < Math.abs(best.at - t)) best = m;
+  }
+  return best;
+}
+
+function jumpToCast() {
+  if (!S.fight || !S.playing || S.t < 0) return;
+  if (S.room && !isLeader()) return;
+  const m = nearestCast(S.t);
+  if (m) setClock(m.at + REACTION);
+}
+
+
 function nearestBoundary(t) {
   let best = null;
   for (const b of phaseBoundaries()) {
@@ -1564,12 +1700,44 @@ function paintPhaseButton(t) {
   const sig = b.t + "|" + Math.round(d) + "|" + el.disabled;
   if (el.dataset.sig === sig) return;
   el.dataset.sig = sig;
+  // Le nom de la phase visee, sur le bouton et non plus seulement dans
+  // l'infobulle : « next phase » ne disait pas vers QUOI on allait.
+  $("nextPhaseName").textContent = b.name;
   el.title = !!S.room && !isLeader()
     ? "Only the party leader can move the clock."
     : onIt
       ? `The clock is already on ${b.name}.`
       : `${b.name} at ${fmt(b.t)} — press P the moment the phase actually turns ` +
         `(clock ${d > 0 ? "forward" : "back"} ${Math.abs(d).toFixed(0)} s).`;
+}
+
+/**
+ * Le bouton de recalage sur cast. Repeint seulement quand la cible change :
+ * render() passe dix fois par seconde, et ce bouton porte du texte.
+ */
+function paintCastButton(t) {
+  const el = $("nextCast");
+  const m = S.playing && t >= 0 ? nearestCast(t) : null;
+  const suiveur = !!S.room && !isLeader();
+  el.disabled = !m || suiveur;
+
+  const sig = m ? m.at + "|" + suiveur : "none";
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+
+  if (!m) {
+    $("nextCastName").textContent = "no boss cast in this plan";
+    $("nextCastWhen").textContent = "";
+    el.title = "";
+    return;
+  }
+  const tb = m.type === "tb";
+  $("nextCastName").innerHTML = esc(m.name) + (tb ? ' <span class="cj-tb">TB</span>' : "");
+  $("nextCastWhen").textContent = fmt(m.at);
+  el.title = suiveur
+    ? "Only the party leader can move the clock."
+    : `Press the moment the boss does “${m.name}”. The clock jumps to ${fmt(m.at)} ` +
+      `plus ${REACTION} s for reaction time, and every cue moves with it. Shortcut: C.`;
 }
 
 function render() {
@@ -1580,10 +1748,12 @@ function render() {
   const lead = num("lead");
   const t = S.t;
 
+  $("resync").hidden = !(S.playing && t >= 0);
   $("clock").textContent = fmt(t);
   $("clock").classList.toggle("pre", t < 0);
   $("phase").textContent = t >= 0 ? phaseAt(t) : "before pull";
   paintPhaseButton(t);
+  paintCastButton(t);
 
   // Le cue courant : le premier non encore passe (tolerance de 2 s apres).
   const nextIdx = S.cues.findIndex((c) => c.t > t - 2);
@@ -2072,6 +2242,7 @@ $("start").addEventListener("click", startRun);
 $("pause").addEventListener("click", togglePause);
 $("reset").addEventListener("click", resetRun);
 $("nextPhase").addEventListener("click", jumpToPhase);
+$("nextCast").addEventListener("click", jumpToCast);
 $("refreshPlan").addEventListener("click", async () => {
   if (!S.code || S.local) return;
   $("refreshPlan").disabled = true;
@@ -2127,6 +2298,7 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Space") { e.preventDefault(); S.playing ? togglePause() : startRun(); }
   if (e.key === "r" || e.key === "R") resetRun();
   if (e.key === "p" || e.key === "P") jumpToPhase();
+  if (e.key === "c" || e.key === "C") jumpToCast();
 });
 
 // --------------------------------------------------------------- demarrage

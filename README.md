@@ -42,24 +42,51 @@ Settings, in seconds:
 | **Personal offset** | shifts your own display; adjustable mid-fight |
 | **Pull countdown** | the clock starts negative, to match the in-game `/countdown` |
 
-Keyboard: `Space` start/pause, `R` reset, `P` phase change.
+Keyboard: `Space` start/pause, `R` reset, `P` phase resync, `C` boss-cast resync.
 
-## Phase changes
+## Staying on the boss
+
+A plan is a score played to the second, and reality drifts from it. Two buttons sit **above
+the clock**, wide enough to hit without aiming, each naming what it will snap to.
+
+**Sync to <cast>** is the fine one, and the one you will actually use. A phase change is
+not visible on screen — nothing announces that the fight moved from phase *n* to *n+1* —
+but a boss cast is something you *see*. Press when the boss does the thing named on the
+button, and the whole timeline slides onto it; every cue moves with it, because cues are
+never moved one at a time.
+
+Two details that are not cosmetic:
+
+- The instant targeted is the **start of the cast** (`time - castTime`), not its resolution
+  — that is what you see first. Most casts have no cast bar at all (66 of 89 on the
+  reference plan), and for those the visible instant is the hit itself. Both cases reduce to
+  the same arithmetic.
+- The clock lands **half a second after** that instant, not on it. By the time your finger
+  reaches the button the event has already started; without that correction every resync
+  would gain half a second, and the error would compound with each use.
+
+It targets the **nearest** cast. Casts are dense — 8.9 s apart on average — so that
+tolerates about four seconds of drift before it picks the neighbour. Which is exactly why
+the button **shows the name**: you compare it to what the boss is doing and only press if
+they match. Hence the order of operations — **phase first to get the clock into the right
+neighbourhood, cast second to put it on the right instant.**
+
+In a party only the leader has them, and they travel the same path as resuming from a
+pause: the client sends a delay, the server dates the new 00:00, followers land on it at
+their next poll.
+
+### And the phase button beside it
 
 A plan is a single timeline anchored at the pull, but a phase ends when the party kills it.
 From the first transition onward, everything downstream is off by however much that phase
-ran long or short — the one structural flaw of a timeline prompter.
+ran long or short — the one structural flaw of a timeline prompter, and the reason the cast
+button exists at all.
 
-**next phase ▸**, next to the phase tag, snaps the clock onto the boundary at the moment the
-phase actually turns. It targets the boundary **nearest** the clock rather than the next one:
-a phase killed early moves the clock forward, one that drags moves it back, and both are the
-same operation. "The next one" would pick the wrong phase as soon as the clock has already
-crossed the boundary, which is exactly what happens in progression. The tooltip carries the
-signed delta, so you can see that a click may also rewind.
-
-In a party, only the leader has it, and it travels the same path as resuming from a pause:
-the client sends a delay, the server dates the new 00:00, and followers land on it at their
-next poll — up to two seconds later, but on the right value.
+**Phase ▸ <name>** snaps the clock onto the boundary. Like the cast button it targets the
+**nearest** one rather than the next: a phase killed early moves the clock forward, one that
+drags moves it back, and both are the same operation. "The next one" would pick the wrong
+phase as soon as the clock had already crossed the boundary — exactly what happens in
+progression. The tooltip carries the signed delta, so you can see when a click will rewind.
 
 What it does not repair: cooldowns run in real time and do not reset on a transition. Moving
 the clock forward brings the following cues that much closer, so a plan built around a slower
@@ -279,6 +306,16 @@ without giving up the stale-cache fallback.
 - `/admin/` is built for a desktop screen; the prompter itself is not.
 
 ## Version
+
+**1.0**
+
+- **Resync on a boss cast.** The feature that makes the rest usable in a real pull: a wide
+  button above the clock, naming the cast it will snap to. See *Staying on the boss*.
+- Both resync buttons moved above the clock and now carry the **name** of their target;
+  `next phase ▸` never said what it was going *to*.
+- The site went public: indexable, with a description and structured data, the write
+  endpoints moved behind the admin password, and the endpoint that listed plan codes
+  removed.
 
 **0.0.6**
 
